@@ -1,0 +1,18 @@
+GreenHouseWatch — Phase 3 transmission log (example)
+Broker : broker.hivemq.com:1883
+Topic  : ctec651/greenhousewatch/ipmcbit
+
+Replace this file with your own live terminal screenshot for submission.
+Run subscriber.py in one terminal and publisher.py --count 15 in the other.
+
+--- publisher ---
+Connecting to broker.hivemq.com:1883 …
+[1] published → ctec651/greenhousewatch/ipmcbit
+       {"timestamp": 1788800000.12, "iso_time": "2026-09-07T16:53:20+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 24.31, "humidity_pct": 61.08, "soil_moisture_pct": 54.20, "light_lux": 4102.5, "alert_flag": 0, "alert_reason": null}
+
+--- subscriber ---
+Connecting to broker.hivemq.com:1883 …
+Connected (rc=Success). Subscribing to ctec651/greenhousewatch/ipmcbit
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788800000.12, "iso_time": "2026-09-07T16:53:20+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 24.31, "humidity_pct": 61.08, "soil_moisture_pct": 54.20, "light_lux": 4102.5, "alert_flag": 0, "alert_reason": null}
+      stored as id=81  (db rows=81)

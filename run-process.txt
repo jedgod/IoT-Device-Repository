@@ -1,0 +1,100 @@
+GreenHouseWatch - Process to Run the Scripts (Windows PowerShell)
+
+1. Open PowerShell and go to the project folder:
+
+   cd "C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository"
+
+2. First-time setup only (already completed on this computer):
+
+   python -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+3. Activate the virtual environment in each new terminal:
+
+   .\.venv\Scripts\Activate.ps1
+
+   If PowerShell blocks activation, use .\.venv\Scripts\python.exe
+   instead of python in every command below. Activation is optional when
+   using that explicit interpreter path.
+
+Keep all terminals in the project root for the following commands.
+
+PHASE 2 - Simulate sensor readings
+
+   python src/simulator.py --count 20 --interval 2
+
+Prints 20 simulated readings at two-second intervals, then exits.
+This step prints readings; it does not store them in the database.
+
+PHASE 3 - Send and receive readings through MQTT
+
+Open two PowerShell terminals. In each terminal, go to the project root
+and activate the virtual environment as described above.
+
+Terminal A - Start the subscriber first:
+
+   python src/subscriber.py
+
+Wait for the connection and subscription message before starting Terminal B.
+The subscriber listens for messages and saves readings to SQLite.
+
+Terminal B - Publish 20 readings:
+
+   python src/publisher.py --count 20 --interval 2
+
+The publisher exits after sending 20 readings. The subscriber keeps running.
+Each new publisher run adds readings to the existing database.
+Broker: broker.hivemq.com:1883
+Topic: ctec651/greenhousewatch/ipmcbit
+
+PHASE 4 - Inspect the database
+
+   python src/db.py
+
+Prints the table schema and current row count.
+Database file: data/iot_data.db
+
+PHASE 5 - Generate charts and export CSV
+
+   python src/visualize.py
+   python src/export_csv.py
+
+Charts are saved in outputs/:
+   01_temperature_over_time.png
+   02_humidity_over_time.png
+   03_soil_and_light.png
+   04_alert_summary.png
+
+CSV is saved as data/sensor_data.csv.
+Run these commands again after collecting new readings to update the files.
+
+PHASE 6 - Launch the dashboard
+
+   python -m streamlit run src/dashboard.py
+
+Open the URL printed in the terminal, normally:
+   http://localhost:8501
+
+Keep this terminal open while using the dashboard.
+Reload the dashboard page to read newly stored data.
+
+OFFLINE OPTION - If HiveMQ is unavailable
+
+From the project root, run:
+
+   python src/offline_pipeline.py
+
+This runs without MQTT. It adds 80 simulated readings if the database has
+fewer than 50 rows; otherwise it preserves existing readings. It then
+exports the CSV and rebuilds the four charts. The dashboard can be started
+afterward with the Phase 6 command.
+
+STOPPING AND EXISTING PROCESSES
+
+Press Ctrl+C in the terminal running the subscriber or dashboard to stop it.
+The subscriber and dashboard started during the previous assisted run may
+still be running in the background. Check http://127.0.0.1:8501 before
+starting another dashboard, and avoid running duplicate subscribers.
+Logs from that assisted run are in samples/subscriber_run.log,
+samples/subscriber_error.log, samples/dashboard_run.log, and
+samples/dashboard_error.log. Manual commands above print to their terminals.

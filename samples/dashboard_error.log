@@ -1,0 +1,6 @@
+2026-09-08 01:56:15.172 Uvicorn server started on 127.0.0.1:8501
+2026-09-08 01:58:00.460 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.

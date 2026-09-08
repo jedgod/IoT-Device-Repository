@@ -1,0 +1,63 @@
+Connecting to broker.hivemq.com:1883 …
+Listening. Ctrl+C to stop.
+Connected (rc=Success). Subscribing to ctec651/greenhousewatch/ipmcbit
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846944.539, "iso_time": "2026-09-08T05:55:44.538986+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.42, "humidity_pct": 78.76, "soil_moisture_pct": 55.22, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=81  (db rows=81)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846946.544, "iso_time": "2026-09-08T05:55:46.544129+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.92, "humidity_pct": 77.49, "soil_moisture_pct": 54.77, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=82  (db rows=82)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846948.563, "iso_time": "2026-09-08T05:55:48.563019+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 18.18, "humidity_pct": 75.4, "soil_moisture_pct": 55.71, "light_lux": 6.5, "alert_flag": 0, "alert_reason": null}
+      stored as id=83  (db rows=83)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846950.585, "iso_time": "2026-09-08T05:55:50.584860+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.46, "humidity_pct": 78.54, "soil_moisture_pct": 54.26, "light_lux": 58.9, "alert_flag": 0, "alert_reason": null}
+      stored as id=84  (db rows=84)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846952.596, "iso_time": "2026-09-08T05:55:52.595850+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.28, "humidity_pct": 79.12, "soil_moisture_pct": 55.32, "light_lux": 68.9, "alert_flag": 0, "alert_reason": null}
+      stored as id=85  (db rows=85)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846954.618, "iso_time": "2026-09-08T05:55:54.618087+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.28, "humidity_pct": 77.67, "soil_moisture_pct": 53.96, "light_lux": 66.2, "alert_flag": 0, "alert_reason": null}
+      stored as id=86  (db rows=86)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846956.626, "iso_time": "2026-09-08T05:55:56.625640+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 18.11, "humidity_pct": 77.22, "soil_moisture_pct": 55.27, "light_lux": 71.8, "alert_flag": 0, "alert_reason": null}
+      stored as id=87  (db rows=87)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846958.631, "iso_time": "2026-09-08T05:55:58.630792+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.93, "humidity_pct": 79.04, "soil_moisture_pct": 54.24, "light_lux": 13.4, "alert_flag": 0, "alert_reason": null}
+      stored as id=88  (db rows=88)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846960.641, "iso_time": "2026-09-08T05:56:00.640508+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 18.14, "humidity_pct": 79.89, "soil_moisture_pct": 54.97, "light_lux": 9.2, "alert_flag": 0, "alert_reason": null}
+      stored as id=89  (db rows=89)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846962.646, "iso_time": "2026-09-08T05:56:02.646330+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.29, "humidity_pct": 76.82, "soil_moisture_pct": 54.67, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=90  (db rows=90)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846964.67, "iso_time": "2026-09-08T05:56:04.670399+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.79, "humidity_pct": 78.08, "soil_moisture_pct": 54.44, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=91  (db rows=91)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846966.678, "iso_time": "2026-09-08T05:56:06.678412+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.38, "humidity_pct": 78.25, "soil_moisture_pct": 55.2, "light_lux": 18.7, "alert_flag": 0, "alert_reason": null}
+      stored as id=92  (db rows=92)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846968.686, "iso_time": "2026-09-08T05:56:08.685985+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.99, "humidity_pct": 78.65, "soil_moisture_pct": 55.28, "light_lux": 25.8, "alert_flag": 0, "alert_reason": null}
+      stored as id=93  (db rows=93)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846970.701, "iso_time": "2026-09-08T05:56:10.700942+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 18.26, "humidity_pct": 79.0, "soil_moisture_pct": 54.93, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=94  (db rows=94)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846972.722, "iso_time": "2026-09-08T05:56:12.721851+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.3, "humidity_pct": 76.89, "soil_moisture_pct": 54.2, "light_lux": 66.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=95  (db rows=95)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846974.727, "iso_time": "2026-09-08T05:56:14.727440+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.59, "humidity_pct": 79.04, "soil_moisture_pct": 55.92, "light_lux": 13.7, "alert_flag": 0, "alert_reason": null}
+      stored as id=96  (db rows=96)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846976.743, "iso_time": "2026-09-08T05:56:16.743393+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.13, "humidity_pct": 77.24, "soil_moisture_pct": 55.71, "light_lux": 16.5, "alert_flag": 0, "alert_reason": null}
+      stored as id=97  (db rows=97)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846978.764, "iso_time": "2026-09-08T05:56:18.764184+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.11, "humidity_pct": 78.18, "soil_moisture_pct": 55.49, "light_lux": 33.4, "alert_flag": 0, "alert_reason": null}
+      stored as id=98  (db rows=98)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846980.771, "iso_time": "2026-09-08T05:56:20.771395+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.09, "humidity_pct": 77.82, "soil_moisture_pct": 55.26, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=99  (db rows=99)
+RECV  ctec651/greenhousewatch/ipmcbit
+      {"timestamp": 1788846982.776, "iso_time": "2026-09-08T05:56:22.775888+00:00", "device_id": "GH-SENSOR-01", "temperature_c": 17.91, "humidity_pct": 77.07, "soil_moisture_pct": 55.47, "light_lux": 0.0, "alert_flag": 0, "alert_reason": null}
+      stored as id=100  (db rows=100)

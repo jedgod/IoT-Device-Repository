@@ -1,0 +1,7 @@
+# CTEC 651 – IoT Digital Repository
+# Install:  pip install -r requirements.txt
+
+paho-mqtt>=1.6.1
+matplotlib>=3.8.0
+streamlit>=1.32.0
+pandas>=2.0.0
