@@ -152,7 +152,7 @@ Safe bands used by the alert logic: temperature 16–32 °C, humidity 40–80 %,
 |---|---|---|
 | 1 Design | 7 Sep 2026 | `docs/PHASE1_Project_Proposal.md` (or `.docx`) + `diagrams/architecture.png` |
 | 2 Simulation | 14 Sep 2026 | `src/simulator.py` + `samples/phase2_sample_output.txt` |
-| 3 MQTT | 21 Sep 2026 | `src/publisher.py`, `src/subscriber.py` + your live screenshot |
+| 3 MQTT | 21 Sep 2026 | `src/publisher.py`, `src/subscriber.py` + live screenshot |
 | 4 Storage | 28 Sep 2026 | `data/iot_data.db` + schema in `docs/table_schema.md` |
 | 5 Viz | 28 Sep 2026 | `outputs/*.png` + `docs/visualization_interpretation.md` |
 | 6 Bonus | 28 Sep 2026 | `src/dashboard.py` |
