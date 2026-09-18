@@ -166,8 +166,13 @@ Safe bands used by the alert logic: temperature 16–32 °C, humidity 40–80 %,
 - Edit `src/config.py` to change the MQTT topic, device id, or alert limits.
 - Creativity extras already included: four sensors, alert flags, day/night cycle, irrigation event, Streamlit dashboard.
 ---
+
 All rights reserved.
-Jerry Diabor
-Department of Computer Science
-Bowie State University
-Initiative for A Smarter greenhouses healthier harvests  
+
+---
+Jerry Diabor | Department of Computer Science | Bowie State University | Bowie, MD
+
+---
+Initiative for A Smarter greenhouses healthier harvests 
+
+---
