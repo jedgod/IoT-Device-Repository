@@ -1,0 +1,207 @@
+GREENHOUSEWATCH - WINDOWS POWERSHELL SETUP AND TEST GUIDE
+Repository: C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository
+Prepared: 16 September 2026
+
+Run the commands below in PowerShell. All terminals must use the repository
+folder. Commands call the virtual environment directly; activation and changes
+to PowerShell's execution policy are not required.
+
+1. OPEN THE PROJECT AND CHECK PYTHON
+
+Set-Location 'C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository'
+Test-Path .\.venv\Scripts\python.exe
+.\.venv\Scripts\python.exe --version
+
+This repository already has a Python 3.14 virtual environment. If the check
+succeeds, keep it and continue to step 2.
+
+Only if the virtual environment is missing, use an installed Python 3.10 or
+newer to create it:
+
+py -3 --version
+py -3 -m venv .venv
+
+If 'py' is unavailable but 'python' works, use:
+
+python --version
+python -m venv .venv
+
+If neither command exists, install Python with its Windows launcher, reopen
+PowerShell, and retry. If an existing environment points to a Python installation
+that no longer exists, rename that environment before creating a replacement.
+
+2. INSTALL DEPENDENCIES
+
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip check
+
+Expected: dependencies install successfully; pip check reports no broken
+requirements. Installation needs internet access. SQLite is built into Python.
+
+For readable UTF-8 console output, run this in each terminal:
+
+$env:PYTHONIOENCODING = 'utf-8'
+
+3. QUICK OFFLINE TEST
+
+.\.venv\Scripts\python.exe src\simulator.py --once
+.\.venv\Scripts\python.exe src\offline_pipeline.py
+.\.venv\Scripts\python.exe src\db.py
+
+Expected:
+- The simulator prints one JSON record with a timestamp, device ID, four sensor
+  measurements, alert_flag and alert_reason.
+- The offline pipeline exports CSV and saves four PNG charts.
+- The database has at least 50 records. The reviewed snapshot had 100; subsequent
+  MQTT runs will increase the count.
+
+The offline pipeline adds 80 simulated records only when fewer than 50 exist.
+Otherwise it retains the existing records. It refreshes the CSV and chart files.
+It does not test MQTT transmission.
+
+4. SAVE A NEW 20-RECORD SIMULATION SAMPLE
+
+.\.venv\Scripts\python.exe -u src\simulator.py --count 20 --interval 2 | Tee-Object -FilePath samples\launchtest_simulation.txt
+
+Expected: 20 JSON readings, approximately two seconds apart. This takes about
+38 seconds. Output is displayed and saved. It does not insert database rows.
+Repeating this command replaces this test log, not the original submission sample.
+
+5. TEST LIVE MQTT - TWO POWERSHELL TERMINALS
+
+Internet access to broker.hivemq.com on TCP port 1883 is required.
+Use only one project subscriber and one publisher at a time: their configured
+client IDs are fixed, and another instance can disconnect an existing one.
+
+TERMINAL A - record the starting count, then start the subscriber:
+
+Set-Location 'C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository'
+$env:PYTHONIOENCODING = 'utf-8'
+.\.venv\Scripts\python.exe src\db.py
+.\.venv\Scripts\python.exe -u src\subscriber.py | Tee-Object -FilePath samples\launchtest_subscriber.txt
+
+Wait for 'Connected (rc=Success). Subscribing to ...' before publishing.
+Leave this terminal running. The command receives messages and appends them
+to data\iot_data.db.
+
+TERMINAL B - publish 20 readings:
+
+Set-Location 'C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository'
+$env:PYTHONIOENCODING = 'utf-8'
+.\.venv\Scripts\python.exe -u src\publisher.py --count 20 --interval 2 | Tee-Object -FilePath samples\launchtest_publisher.txt
+
+Expected: the publisher exits after about 40 seconds. Terminal A shows RECV,
+the JSON payload, and 'stored as id=... (db rows=...)' for received readings.
+
+After all messages arrive, press Ctrl+C in Terminal A to stop the subscriber.
+Then run in Terminal B:
+
+.\.venv\Scripts\python.exe src\db.py
+
+The count should increase by 20 if all 20 messages arrived and no other sender
+used the topic. For example, 100 becomes 120. MQTT uses QoS 0, so confirm actual
+subscriber receipt and database growth; publisher output alone is insufficient.
+The two launchtest logs preserve the terminal evidence. Repeating the commands
+replaces these test logs and adds another batch of readings to the database.
+
+6. REFRESH THE EXPORT AND CHARTS
+
+.\.venv\Scripts\python.exe src\export_csv.py
+.\.venv\Scripts\python.exe src\visualize.py
+
+Expected outputs:
+data\sensor_data.csv
+outputs\01_temperature_over_time.png
+outputs\02_humidity_over_time.png
+outputs\03_soil_and_light.png
+outputs\04_alert_summary.png
+
+Open the chart folder:
+
+Invoke-Item .\outputs
+
+The CSV and charts should now reflect the latest database count and alerts.
+Update report/slide totals if you submit the new snapshot.
+
+7. LAUNCH THE DASHBOARD
+
+.\.venv\Scripts\python.exe -m streamlit run src\dashboard.py
+
+Open the Local URL printed by Streamlit, normally http://localhost:8501.
+Keep this terminal running while using the dashboard.
+
+Check that the page displays:
+- Readings: the current database row count.
+- Latest temperature, humidity and soil moisture.
+- Total alerts.
+- Four sensor charts and the latest 15 readings.
+
+The dashboard does not automatically refresh when MQTT adds rows. Use Streamlit's
+Rerun command or reload the page after ingestion. Its charts currently use row
+positions, not timestamp-based horizontal axes.
+
+If port 8501 is occupied, use:
+
+.\.venv\Scripts\python.exe -m streamlit run src\dashboard.py --server.port 8502
+
+Then open the Local URL on port 8502.
+
+8. SHUT DOWN
+
+Press Ctrl+C in the dashboard terminal.
+Press Ctrl+C in the subscriber terminal if it is still running.
+A publisher launched with --count 20 stops itself; an unlimited publisher needs
+Ctrl+C. SQLite rows, exported CSV, charts and saved logs remain on disk.
+
+9. TROUBLESHOOTING AND KNOWN LIMITATIONS
+
+ModuleNotFoundError:
+Run step 2 using the same .venv\Scripts\python.exe interpreter as the launch
+commands. Do not mix a global Python installation with the project environment.
+
+Broker connection failure or timeout:
+Test-NetConnection broker.hivemq.com -Port 1883
+If TcpTestSucceeded is False, check the connection and whether the network permits
+MQTT traffic. Use the offline test for storage/charts until connectivity returns.
+A successful TCP check does not itself prove MQTT delivery.
+
+Subscriber connects but receives nothing:
+Confirm both programs use the same broker and topic, and start the subscriber
+before the publisher. Defaults are in src\config.py. If using --topic, supply the
+same value to both programs. Another running instance with the same client ID
+can interrupt the connection.
+
+Database is locked:
+Stop duplicate writers and finish or close any open edit transaction in a SQLite
+browser, then retry. Keep the application to one subscriber during the demo.
+
+Invalid sensor data / dashboard ValueError:
+The review reproduced acceptance of invalid numeric measurements by the subscriber
+and a dashboard failure on a nonnumeric latest temperature. The existing reviewed
+100-row dataset was valid. Input validation still needs a code fix. If this occurs,
+stop ingestion and inspect the offending row; preserve the database before making
+corrections. Do not assume a crash means the entire database must be reset.
+
+Empty database or too few readings for charts:
+Run src\offline_pipeline.py as in step 3 to populate data and regenerate outputs.
+
+Data preservation:
+Do not use seed_database.py --reset during routine setup/testing. That option
+deletes existing sensor rows. For a backup, stop the subscriber and other writers,
+then copy data\iot_data.db to a separately named backup before changing data.
+
+10. DEMONSTRATION CHECKLIST
+
+[ ] Dependencies installed and pip check passes.
+[ ] Simulator produces JSON and the saved sample has 20 records.
+[ ] Subscriber connects to HiveMQ before publishing starts.
+[ ] Publisher output and subscriber receipts are saved.
+[ ] Database count increases by the number of messages actually received.
+[ ] CSV export and all four charts are refreshed.
+[ ] Dashboard count agrees with the database after a rerun.
+[ ] Report and slide totals agree with the selected submission snapshot.
+[ ] Final live or recorded demonstration shows the complete MQTT pipeline.
+
+The commands above are a run guide. They do not claim a fresh live MQTT test was
+performed when this guide was written. The prior application review verified
+local processing and matched 20 retained MQTT payloads to the stored database.

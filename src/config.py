@@ -34,3 +34,76 @@ HUMIDITY_MIN = 40.0
 HUMIDITY_MAX = 80.0
 SOIL_MIN = 30.0
 LIGHT_DAY_MIN = 200.0
+
+# Monthly target temperature ranges for the dashboard and reporting views.
+TEMP_MONTHLY_RANGE_C = {
+    "September": {"min_c": 18.0, "max_c": 30.0},
+    "October": {"min_c": 16.0, "max_c": 28.0},
+    "November": {"min_c": 13.0, "max_c": 24.0},
+    "December": {"min_c": 10.0, "max_c": 22.0},
+}
+
+ZONE_PROFILES = {
+    "tomato-zone": {
+        "label": "Tomatoes",
+        "temp_min_c": 20.0,
+        "temp_max_c": 28.0,
+        "humidity_min": 55.0,
+        "humidity_max": 75.0,
+        "soil_min": 45.0,
+        "description": "Heat tolerant crop with a preference for stable moisture.",
+    },
+    "lettuce-zone": {
+        "label": "Lettuce",
+        "temp_min_c": 15.0,
+        "temp_max_c": 22.0,
+        "humidity_min": 60.0,
+        "humidity_max": 80.0,
+        "soil_min": 50.0,
+        "description": "Cooler crop that needs more humidity and lower heat stress.",
+    },
+    "cucumber-zone": {
+        "label": "Cucumber",
+        "temp_min_c": 21.0,
+        "temp_max_c": 29.0,
+        "humidity_min": 65.0,
+        "humidity_max": 85.0,
+        "soil_min": 52.0,
+        "description": "High-growth vine crop that prefers warm, well-hydrated conditions.",
+    },
+    "carrot-zone": {
+        "label": "Carrot",
+        "temp_min_c": 12.0,
+        "temp_max_c": 22.0,
+        "humidity_min": 55.0,
+        "humidity_max": 75.0,
+        "soil_min": 48.0,
+        "description": "Cool-weather root crop requiring consistent moisture and moderate temperature.",
+    },
+    "watermelon-zone": {
+        "label": "Watermelon",
+        "temp_min_c": 24.0,
+        "temp_max_c": 32.0,
+        "humidity_min": 50.0,
+        "humidity_max": 70.0,
+        "soil_min": 46.0,
+        "description": "Fruit crop with a warmer threshold and strong water demand during peak growth.",
+    },
+    "seedling-zone": {
+        "label": "Seedlings",
+        "temp_min_c": 18.0,
+        "temp_max_c": 24.0,
+        "humidity_min": 65.0,
+        "humidity_max": 82.0,
+        "soil_min": 55.0,
+        "description": "Sensitive propagation zone that prioritises steady moisture.",
+    },
+}
+
+ALERT_LIFECYCLE_STATES = [
+    "Normal",
+    "Warning",
+    "Critical",
+    "Acknowledged",
+    "Resolved",
+]

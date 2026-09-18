@@ -1,87 +1,97 @@
-"""
-Phase 6 (bonus) — Streamlit dashboard.
-
-Usage (from the project root):
-    streamlit run src/dashboard.py
-"""
-
+"""GreenHouseWatch dashboard control center."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
-
+import pandas as pd
 import streamlit as st
-
-from config import DB_PATH, HUMIDITY_MIN, SOIL_MIN, TEMP_MAX_C, TEMP_MIN_C
-from db import connect, count_rows, fetch_all, init_db
+from config import HUMIDITY_MIN, SOIL_MIN, TEMP_MAX_C, TEMP_MIN_C, TEMP_MONTHLY_RANGE_C
 
 
-st.set_page_config(page_title="GreenHouseWatch", page_icon="🌿", layout="wide")
+def calculate_forecast_metrics(rows):
+    temps = [float(r["temperature_c"]) for r in rows]
+    if len(temps) < 4:
+        return {"forecast_horizon": 0, "mae_c": 0.0, "rmse_c": 0.0, "baseline_model": "insufficient data"}
+    errors = []
+    for idx in range(3, len(temps)):
+        history = temps[idx - 3:idx]
+        prediction = sum(history) / len(history)
+        errors.append(temps[idx] - prediction)
+    mae = sum(abs(e) for e in errors) / len(errors)
+    rmse = (sum(e * e for e in errors) / len(errors)) ** 0.5
+    return {"forecast_horizon": len(errors), "mae_c": round(mae, 2), "rmse_c": round(rmse, 2), "baseline_model": "rolling average (3-step)"}
 
 
-def load_rows():
-    init_db()
-    return fetch_all(connect())
+def build_irrigation_recommendation(rows):
+    if not rows:
+        return "No sensor data available"
+    latest = rows[-1]
+    soil = float(latest["soil_moisture_pct"])
+    temperature = float(latest["temperature_c"])
+    humidity = float(latest["humidity_pct"])
+    if soil < SOIL_MIN and temperature > TEMP_MAX_C:
+        return "Irrigate now: soil low and temperature high"
+    if soil < SOIL_MIN:
+        return "Irrigate now: soil moisture below safe minimum"
+    if humidity > HUMIDITY_MIN and temperature > TEMP_MIN_C:
+        return "Monitor: conditions are within a safe band"
+    return "No irrigation needed"
 
 
-rows = load_rows()
-st.title("🌿 GreenHouseWatch")
-st.caption("CTEC 651 — Local IoT Digital Repository  ·  SQLite + MQTT pipeline")
+def build_monthly_temperature_table(rows):
+    months = ["September", "October", "November", "December"]
+    monthly = {month: [] for month in months}
+    for row in rows:
+        month_name = datetime.fromtimestamp(row["timestamp"], tz=timezone.utc).strftime("%B")
+        if month_name in monthly:
+            monthly[month_name].append(float(row["temperature_c"]))
+    records = []
+    for month in months:
+        values = monthly.get(month, [])
+        avg_temp = sum(values) / len(values) if values else 0.0
+        min_temp = min(values) if values else 0.0
+        max_temp = max(values) if values else 0.0
+        target = TEMP_MONTHLY_RANGE_C.get(month, {"min_c": 0.0, "max_c": 0.0})
+        records.append({"month": month, "avg_temp": round(avg_temp, 2), "min_temp": round(min_temp, 2), "max_temp": round(max_temp, 2), "target_min": target["min_c"], "target_max": target["max_c"]})
+    return pd.DataFrame(records)
 
-if not rows:
-    st.warning("Database is empty. Run `python src/seed_database.py` first.")
-    st.stop()
 
-latest = rows[-1]
-n = len(rows)
-n_alert = sum(1 for r in rows if r["alert_flag"])
+def build_forecast_table(month_temp_df):
+    months = list(month_temp_df["month"])
+    forecast_rows = []
+    for idx, month in enumerate(months):
+        current = float(month_temp_df.loc[month_temp_df["month"] == month, "avg_temp"].iloc[0]) if not month_temp_df.empty else 0.0
+        next_month = months[idx + 1] if idx + 1 < len(months) else "January"
+        next_target = TEMP_MONTHLY_RANGE_C.get(next_month, {"min_c": current - 2.0, "max_c": current + 2.0})
+        expected_temp = round((next_target["min_c"] + next_target["max_c"]) / 2, 2)
+        forecast_rows.append({"month": month, "current_temp_c": round(current, 2), "expected_temp_c": expected_temp, "next_month": next_month, "delta_c": round(expected_temp - current, 2), "target_min": next_target["min_c"], "target_max": next_target["max_c"]})
+    return pd.DataFrame(forecast_rows)
 
-c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Readings", n)
-c2.metric("Temperature", f"{latest['temperature_c']:.1f} °C")
-c3.metric("Humidity", f"{latest['humidity_pct']:.1f} %")
-c4.metric("Soil moisture", f"{latest['soil_moisture_pct']:.1f} %")
-c5.metric("Alerts", n_alert)
 
-st.divider()
-left, right = st.columns(2)
+def set_dashboard_style():
+    from dashboard_ui import ASSETS
+    st.html(ASSETS / "dashboard.css")
 
-temps = [r["temperature_c"] for r in rows]
-hums = [r["humidity_pct"] for r in rows]
-soils = [r["soil_moisture_pct"] for r in rows]
-lights = [r["light_lux"] for r in rows]
-labels = [
-    datetime.fromtimestamp(r["timestamp"], tz=timezone.utc).strftime("%H:%M")
-    for r in rows
-]
 
-with left:
-    st.subheader("Temperature")
-    st.line_chart({"°C": temps})
-    st.subheader("Humidity")
-    st.line_chart({"%": hums})
-with right:
-    st.subheader("Soil moisture")
-    st.line_chart({"%": soils})
-    st.subheader("Light")
-    st.line_chart({"lux": lights})
+def run_dashboard():
+    from dashboard_ui import icon
+    st.set_page_config(page_title="GreenHouseWatch", page_icon=":material/eco:", layout="wide", initial_sidebar_state="expanded")
+    set_dashboard_style()
+    pages = [
+        st.Page("dashboard_pages/overview.py", title="Overview", icon=":material/home:", default=True),
+        st.Page("dashboard_pages/zones.py", title="Zones", icon=":material/eco:"),
+        st.Page("dashboard_pages/analytics.py", title="Analytics", icon=":material/bar_chart:"),
+        st.Page("dashboard_pages/forecast.py", title="Forecast", icon=":material/cloud:"),
+        st.Page("dashboard_pages/controls.py", title="Controls", icon=":material/settings:"),
+        st.Page("dashboard_pages/data_explorer.py", title="Data", icon=":material/database:"),
+    ]
+    page = st.navigation(pages, position="hidden")
+    with st.sidebar:
+        st.html(f'<div class="brand">{icon("leaf", "#a4d78e")}<div><strong>GreenHouseWatch</strong><p>Smarter greenhouses<br>healthier harvests</p></div></div>')
+        for item in pages:
+            st.page_link(item, label=item.title, icon=item.icon, width="stretch")
+        st.html(f'<div class="sidebar-footer"><div class="sidebar-motto">{icon("plant", "#74bf88")}<span>Healthy plants<br>brighter tomorrows</span></div><div class="sidebar-status"><span class="dot"></span>System online</div><div>Reference snapshot<br>Sep 16, 2026 &nbsp; 14:32</div><div class="demo-note">SIMULATED GREENHOUSE · DEMO</div></div>')
+    page.run()
 
-st.divider()
-st.subheader("Latest 15 readings")
-st.dataframe(
-    [
-        {
-            "time": r["iso_time"],
-            "device": r["device_id"],
-            "temp_C": r["temperature_c"],
-            "humidity": r["humidity_pct"],
-            "soil": r["soil_moisture_pct"],
-            "light": r["light_lux"],
-            "alert": r["alert_reason"] or "",
-        }
-        for r in rows[-15:]
-    ],
-    use_container_width=True,
-)
 
-st.caption(f"Source database: {DB_PATH}  ·  safe temp {TEMP_MIN_C}–{TEMP_MAX_C}°C  ·  "
-           f"humidity ≥ {HUMIDITY_MIN}%  ·  soil ≥ {SOIL_MIN}%")
+if __name__ == "__main__":
+    run_dashboard()

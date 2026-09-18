@@ -1,0 +1,364 @@
+GREENHOUSEWATCH PROJECT IMPROVEMENT PROPOSAL
+============================================
+
+Project: GreenHouseWatch — Local IoT Digital Repository
+Purpose: Make the project more practical, realistic, technically challenging,
+and capable of producing measurable results.
+
+
+1. OVERALL ASSESSMENT
+---------------------
+
+The project already has a strong end-to-end foundation:
+
+Sensor Simulator -> MQTT Broker -> Subscriber -> SQLite -> Visualization
+
+However, it currently resembles a polished course demonstration more than a
+realistic greenhouse system. The most important improvement is to turn it from
+a monitoring application into a measurable decision-support and safe-control
+system.
+
+
+2. RECOMMENDED PROJECT OBJECTIVE
+--------------------------------
+
+Design and evaluate a fault-tolerant IoT greenhouse system that monitors
+multiple growing zones, predicts short-term environmental conditions, detects
+sensor faults, and recommends or safely executes irrigation decisions.
+
+
+3. MEASURABLE SUCCESS CRITERIA
+------------------------------
+
+- Store at least 95 percent of valid messages during normal operation.
+- Recover automatically after an MQTT broker disconnection.
+- Prevent duplicate database records after message retransmission.
+- Generate alerts within five seconds of a threshold violation.
+- Report forecast performance using MAE and RMSE.
+- Irrigate only when soil moisture is low and all safety rules pass.
+- Keep dashboard data within an established freshness or latency target.
+- Cover major requirements with automated tests or reproducible demonstrations.
+
+
+4. HIGHEST-PRIORITY IMPROVEMENTS
+--------------------------------
+
+Priority 1: Add a safe irrigation controller
+
+The system currently identifies threshold violations but does not act on them.
+Add manual and automatic operating modes, irrigation cooldown periods, maximum
+pump runtime, and safety limits. This changes the project from passive
+monitoring into a useful greenhouse management prototype.
+
+Priority 2: Implement a genuine forecast
+
+The current monthly temperature ranges are operating targets, not forecasts.
+Build a time-series model that produces predictions from historical data and
+evaluate it against a simple baseline using MAE and RMSE.
+
+Priority 3: Add a reliable local MQTT option
+
+Use a local Mosquitto broker, preferably through Docker, with authentication
+and optional TLS. Keep the public HiveMQ broker as a secondary demonstration
+option. This makes the project safer, repeatable, and less dependent on campus
+internet access.
+
+Priority 4: Create realistic historical data
+
+Eighty seeded records are insufficient for meaningful monthly analysis or
+forecasting. Generate several months of hourly observations with realistic
+daily cycles, seasonal patterns, irrigation effects, and sensor noise.
+
+Priority 5: Support multiple greenhouse zones
+
+Simulate at least three devices or greenhouse zones. Give each zone a different
+crop profile and operating range. This makes device management, comparison,
+and spatial analysis meaningful.
+
+Priority 6: Engineer for failures
+
+Add reconnect behavior, MQTT QoS, retained device status, validation, duplicate
+prevention, and offline buffering. A practical IoT system must behave correctly
+when networks, sensors, or storage components fail.
+
+Priority 7: Add verification and results
+
+Create automated tests, acceptance criteria, and a final results table. This
+provides evidence that the project works instead of relying only on feature
+descriptions and screenshots.
+
+
+5. REALISTIC SENSOR SIMULATION
+------------------------------
+
+Replace unrelated random readings with environmental behavior that can be
+explained:
+
+- Daily temperature and light cycles.
+- Seasonal temperature trends.
+- An inverse relationship between temperature and relative humidity.
+- Gradual soil-moisture loss over time.
+- Soil-moisture increase following irrigation.
+- Different conditions in separate greenhouse zones.
+- Sensor noise, calibration drift, stuck readings, missing readings, and
+  occasional outliers.
+- Configurable profiles for crops such as tomato, lettuce, and pepper.
+- A --seed option that makes experiments reproducible.
+
+Example behavior:
+
+Sunrise -> light increases -> temperature increases
+Temperature increases -> relative humidity generally decreases
+Soil dries -> irrigation activates -> soil moisture gradually rises
+
+
+6. MULTI-ZONE GREENHOUSE DESIGN
+-------------------------------
+
+Recommended zones:
+
+- Zone A — Tomatoes: monitor heat and moisture stress.
+- Zone B — Lettuce: protect against excessive temperature.
+- Zone C — Seedlings: maintain stable moisture and humidity.
+
+Recommended telemetry fields:
+
+- message_id
+- zone_id
+- sensor_id
+- device_id
+- sequence_number
+- firmware_version
+- battery_pct
+- signal_strength
+- data_quality
+- measured_at
+- received_at
+
+Use a unique message_id or a unique combination of device_id and
+sequence_number to prevent duplicate inserts.
+
+
+7. ALERT AND DECISION SYSTEM
+----------------------------
+
+Introduce an alert lifecycle:
+
+Normal -> Warning -> Critical -> Acknowledged -> Resolved
+
+Use a separate alerts table containing:
+
+- alert severity
+- rule triggered
+- detection time
+- acknowledgement time
+- resolution time
+- recommended action
+- responsible user or controller
+
+Suggested irrigation rule:
+
+IF soil moisture is below the crop minimum
+AND no irrigation occurred during the cooldown period
+AND the water supply is available
+THEN recommend or start irrigation.
+
+For a stronger implementation, simulate a pump and record the command, command
+acknowledgement, start and stop times, water used, moisture response, and any
+failure or timeout. Include manual override and maximum runtime safeguards.
+
+
+8. FORECASTING IMPROVEMENT
+--------------------------
+
+Clearly separate the following concepts:
+
+- Target range: the safe agronomic operating limits.
+- Forecast: a model-generated estimate based on historical observations.
+- Recommendation: an action based on current data, targets, and forecasts.
+
+Compare at least these models:
+
+1. Naive or seasonal-naive baseline.
+2. Moving average or exponential smoothing.
+3. An additional model if allowed by the course scope.
+
+Use a chronological train/test split and publish:
+
+- forecast horizon
+- number of observations
+- MAE
+- RMSE
+- prediction interval
+- comparison with the baseline
+
+A month-ahead forecast is not meaningful with only 80 readings. Either create
+several months of hourly data or change the forecast horizon to the next 1 to
+24 hours.
+
+
+9. MQTT AND COMMUNICATION IMPROVEMENTS
+--------------------------------------
+
+Use a structured topic namespace such as:
+
+greenhousewatch/{environment}/{zone}/{device}/telemetry
+
+Create separate topics for telemetry, alerts, commands, acknowledgements, and
+device status. Also add:
+
+- Justified MQTT QoS levels.
+- Last Will and Testament for offline-device detection.
+- Retained online/offline status.
+- Exponential reconnect backoff.
+- JSON Schema validation.
+- Duplicate-message handling.
+- Local buffering while the broker or database is unavailable.
+- Authentication and optional TLS.
+
+
+10. DATABASE IMPROVEMENTS
+-------------------------
+
+Recommended tables:
+
+- devices
+- zones
+- telemetry
+- alerts
+- control_commands
+- irrigation_events
+- forecast_runs
+
+Additional database improvements:
+
+- Store all timestamps consistently in UTC.
+- Store both device measurement time and server receipt time.
+- Add uniqueness, foreign-key, and valid-range constraints.
+- Index time, device, and zone fields.
+- Define data retention and aggregation rules.
+- Include a repeatable schema initialization or migration process.
+
+
+11. DASHBOARD IMPROVEMENTS
+--------------------------
+
+The dashboard should answer practical questions:
+
+- Which zone needs attention now?
+- How long has a condition been abnormal?
+- Which devices are offline or producing poor-quality readings?
+- How much water has been used?
+- Did irrigation improve soil moisture?
+- How accurate were recent forecasts?
+- What are the current message latency and loss rates?
+
+Recommended dashboard features:
+
+- Greenhouse zone status overview.
+- Alert acknowledgement and resolution controls.
+- Device-health and data-quality display.
+- Historical date-range selector.
+- Actual-versus-forecast chart.
+- Irrigation event overlays.
+- Data freshness indicator.
+- Manual and automatic control selector.
+- CSV export.
+
+
+12. FAULT-INJECTION DEMONSTRATIONS
+----------------------------------
+
+Add reproducible command-line scenarios such as:
+
+python simulator.py --scenario heatwave
+python simulator.py --scenario dry-soil
+python simulator.py --scenario sensor-stuck
+python simulator.py --scenario packet-loss
+python simulator.py --scenario broker-outage
+
+During the presentation, trigger a problem, show that the system detects it,
+demonstrate recovery or safe action, and display the measured result.
+
+
+13. TESTING AND EVIDENCE
+------------------------
+
+Test at least the following behaviors:
+
+- Sensor values remain inside physical limits.
+- Invalid JSON is rejected.
+- Messages with missing required fields are rejected.
+- Duplicate messages are not stored twice.
+- Alert boundaries work correctly.
+- The subscriber reconnects after a broker interruption.
+- Irrigation cooldown prevents repeated pump commands.
+- Database queries and dashboard summaries are correct.
+- Forecast training does not use future test data.
+
+Include a results table in the README showing each requirement, test method,
+expected result, observed result, and pass/fail status.
+
+
+14. README IMPROVEMENTS
+-----------------------
+
+Clearly identify which features are implemented, planned, or optional. Keep
+the claim that the repository is a complete runnable implementation only after
+testing installation and execution in a clean environment.
+
+Recommended README sections:
+
+1. Problem statement and stakeholders.
+2. Functional and non-functional requirements.
+3. Architecture and message flow.
+4. Design decisions and tradeoffs.
+5. Reproducible quick start.
+6. Configuration reference.
+7. Testing instructions and results.
+8. Forecast methodology and evaluation.
+9. Security and privacy considerations.
+10. Known limitations.
+11. Demonstration scenarios.
+12. Future improvements.
+
+Replace all screenshot placeholders before submission and include expected
+output for the main quick-start demonstration.
+
+
+15. RECOMMENDED FINAL SCOPE
+---------------------------
+
+For the strongest result without making the project unmanageable, implement:
+
+- Three greenhouse zones with different crop profiles.
+- A realistic, reproducible, time-dependent sensor simulation.
+- MQTT telemetry, commands, acknowledgements, and device status.
+- Normalized SQLite storage with duplicate prevention.
+- Local Mosquitto support plus optional public-broker mode.
+- Fault detection and a complete alert lifecycle.
+- Safe simulated irrigation control with manual override.
+- A short-term forecast with baseline comparison and measured error.
+- A dashboard showing live state, history, forecasts, alerts, device health,
+  and irrigation effectiveness.
+- Automated tests and a results-based demonstration.
+
+This scope remains achievable for a course project while demonstrating IoT
+communication, data engineering, resilience, analytics, forecasting,
+interface design, and responsible automation.
+
+
+16. SUGGESTED IMPLEMENTATION ORDER
+----------------------------------
+
+1. Define measurable requirements and crop profiles.
+2. Improve the simulator and generate realistic historical data.
+3. Redesign MQTT topics and add reliability behavior.
+4. Normalize the database and implement duplicate prevention.
+5. Add alert lifecycle and simulated irrigation control.
+6. Build and evaluate the short-term forecasting models.
+7. Extend the dashboard around practical operator decisions.
+8. Add automated tests and fault-injection scenarios.
+9. Measure results and update the README.
+10. Record the final demonstration and add screenshots.
+

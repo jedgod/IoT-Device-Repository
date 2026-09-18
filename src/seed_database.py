@@ -7,7 +7,14 @@ from __future__ import annotations
 
 import argparse
 
-from db import connect, init_db, insert_many, count_rows, print_schema
+from db import (
+    connect,
+    init_db,
+    insert_many,
+    print_schema,
+    seed_default_zones,
+    seed_zone_telemetry,
+)
 from simulator import generate_series
 
 
@@ -21,12 +28,21 @@ def main() -> None:
     init_db(conn)
     if args.reset:
         conn.execute("DELETE FROM sensor_data")
+        conn.execute("DELETE FROM zone_telemetry")
+        conn.execute("DELETE FROM greenhouse_zones")
+        conn.execute("DELETE FROM alert_events")
+        conn.execute("DELETE FROM control_commands")
+        conn.execute("DELETE FROM irrigation_events")
         conn.commit()
         print("Existing rows deleted.")
+
+    zone_rows = seed_default_zones(conn)
+    telemetry_rows = seed_zone_telemetry(conn, count=3)
 
     rows = generate_series(n=args.n)
     inserted = insert_many(conn, rows)
     print(f"Inserted {inserted} readings.")
+    print(f"Inserted {len(zone_rows)} greenhouse zones and {len(telemetry_rows)} zone telemetry samples.")
     print_schema()
     conn.close()
 

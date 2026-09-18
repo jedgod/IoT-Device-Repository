@@ -15,10 +15,12 @@ import json
 import math
 import random
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from config import (
+    ALERT_LIFECYCLE_STATES,
     DEVICE_ID,
     HUMIDITY_MAX,
     HUMIDITY_MIN,
@@ -26,11 +28,16 @@ from config import (
     SOIL_MIN,
     TEMP_MAX_C,
     TEMP_MIN_C,
+    ZONE_PROFILES,
 )
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
+
+
+def _zone_profile(zone_id: str) -> dict:
+    return ZONE_PROFILES.get(zone_id, ZONE_PROFILES["tomato-zone"])
 
 
 def evaluate_alerts(reading: dict) -> tuple[int, Optional[str]]:
@@ -48,6 +55,47 @@ def evaluate_alerts(reading: dict) -> tuple[int, Optional[str]]:
     if reasons:
         return 1, ",".join(reasons)
     return 0, None
+
+
+def evaluate_zone_alert(reading: dict) -> tuple[str, str, str]:
+    """Return lifecycle state, severity and reason using the zone crop-safe range."""
+    profile = _zone_profile(reading.get("zone_id", "tomato-zone"))
+    temp = reading["temperature_c"]
+    humidity = reading["humidity_pct"]
+    soil = reading["soil_moisture_pct"]
+
+    violations = []
+    if temp < profile["temp_min_c"]:
+        violations.append("low_temperature")
+    if temp > profile["temp_max_c"]:
+        violations.append("high_temperature")
+    if humidity < profile["humidity_min"]:
+        violations.append("low_humidity")
+    if humidity > profile["humidity_max"]:
+        violations.append("high_humidity")
+    if soil < profile["soil_min"]:
+        violations.append("dry_soil")
+
+    if not violations:
+        return "Normal", "info", "Within crop operating band"
+
+    if len(violations) >= 2 or temp < profile["temp_min_c"] - 4 or temp > profile["temp_max_c"] + 3:
+        state = "Critical"
+        severity = "critical"
+    elif len(violations) == 1:
+        state = "Warning"
+        severity = "warning"
+    else:
+        state = "Warning"
+        severity = "warning"
+
+    if reading.get("alert_state") in ALERT_LIFECYCLE_STATES:
+        state = reading["alert_state"]
+    if reading.get("alert_severity") in {"info", "warning", "critical"}:
+        severity = reading["alert_severity"]
+
+    reason = ",".join(sorted(set(violations)))
+    return state, severity, reason
 
 
 def generate_reading(
@@ -70,7 +118,6 @@ def generate_reading(
         datetime.fromtimestamp(ts, tz=timezone.utc).minute / 60.0
     )
 
-    # Smooth solar curve: 0 at night, 1 at midday
     solar = max(0.0, math.sin((hour - 6.0) / 12.0 * math.pi))
     solar = solar ** 1.2
 
@@ -103,6 +150,56 @@ def generate_reading(
     return reading
 
 
+def generate_zone_reading(
+    ts: Optional[float] = None,
+    zone_id: str = "tomato-zone",
+    device_id: Optional[str] = None,
+    anomaly: Optional[str] = None,
+    sequence_number: Optional[int] = None,
+    soil_base: float = 55.0,
+) -> dict:
+    """Generate a telemetry record with greenhouse-zone metadata and alert lifecycle data."""
+    ts = time.time() if ts is None else ts
+    device_id = device_id or f"GH-{zone_id.upper().replace('-', '')[:10]}-01"
+    sensor_id = f"SENSOR-{random.randint(100, 999)}"
+    sequence_number = sequence_number if sequence_number is not None else random.randint(1, 9999)
+    profile = _zone_profile(zone_id)
+
+    base = generate_reading(ts=ts, device_id=device_id, anomaly=anomaly, soil_base=soil_base)
+    base.update(
+        {
+            "message_id": f"{zone_id}-{device_id}-{sequence_number}-{int(ts * 1000)}",
+            "zone_id": zone_id,
+            "sensor_id": sensor_id,
+            "sequence_number": int(sequence_number),
+            "firmware_version": "1.4.0",
+            "battery_pct": round(random.uniform(76.0, 99.0), 1),
+            "signal_strength": round(random.uniform(-52.0, -25.0), 1),
+            "data_quality": "good",
+            "measured_at": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "alert_state": "Normal",
+            "alert_severity": "info",
+            "crop_name": profile["label"],
+            "zone_temperature_min_c": profile["temp_min_c"],
+            "zone_temperature_max_c": profile["temp_max_c"],
+            "zone_humidity_min": profile["humidity_min"],
+            "zone_humidity_max": profile["humidity_max"],
+            "zone_soil_min": profile["soil_min"],
+        }
+    )
+
+    state, severity, reason = evaluate_zone_alert(base)
+    base["alert_state"] = state
+    base["alert_severity"] = severity
+    base["alert_reason"] = reason
+    if severity == "critical":
+        base["data_quality"] = "degraded"
+    elif severity == "warning":
+        base["data_quality"] = "monitoring"
+    return base
+
+
 def generate_series(n: int = 80, start_ts: Optional[float] = None, step_sec: int = 900) -> list[dict]:
     """
     Historical series for the database / charts.
@@ -115,7 +212,6 @@ def generate_series(n: int = 80, start_ts: Optional[float] = None, step_sec: int
     for i in range(n):
         if i > 0:
             soil -= random.uniform(0.15, 0.45)
-        # Irrigation event mid-series
         if i == int(n * 0.65):
             soil = random.uniform(68.0, 75.0)
         reading = generate_reading(
@@ -133,17 +229,18 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=20, help="number of live samples to print")
     parser.add_argument("--interval", type=float, default=PUBLISH_INTERVAL_SEC)
     parser.add_argument("--once", action="store_true", help="print a single JSON record and exit")
+    parser.add_argument("--zone", default="tomato-zone", help="greenhouse zone to simulate")
     args = parser.parse_args()
 
     if args.once:
-        print(json.dumps(generate_reading(), indent=2))
+        print(json.dumps(generate_zone_reading(zone_id=args.zone), indent=2))
         return
 
     print(f"# GreenHouseWatch simulator — {args.count} records, interval={args.interval}s")
     print("# Fields: timestamp, iso_time, device_id, temperature_c, humidity_pct, "
           "soil_moisture_pct, light_lux, alert_flag, alert_reason")
     for i in range(args.count):
-        rec = generate_reading()
+        rec = generate_zone_reading(zone_id=args.zone, sequence_number=i + 1)
         print(json.dumps(rec))
         if i < args.count - 1:
             time.sleep(args.interval)
