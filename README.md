@@ -1,8 +1,8 @@
 # GreenHouseWatch-Local IoT Digital Repository
 
-**Course:** CTEC 651 – Internet Technologies Discovery  
+**Course:** CTEC 651-Internet Technologies Discovery  
 **Instructor:** Prof. F. Njeh  
-**Assignment:** Digital Repository Project 1 (due 28 September 2026)  
+**Project:** Digital Repository Project 1 (due 28 September 2026)  
 **Use case:** Smart greenhouse climate and soil monitoring
 
 This folder is a complete, runnable implementation of every required phase:
@@ -56,7 +56,7 @@ pip install -r requirements.txt
 
 ## How to run each phase
 
-### Phase 2 — simulate sensors
+### Phase 2: simulate sensors
 
 ```bash
 cd src
@@ -66,7 +66,7 @@ python simulator.py --once          # one JSON record
 
 Sample console output is saved in `samples/phase2_sample_output.txt`.
 
-### Phase 3 — MQTT transmission
+### Phase 3: MQTT transmission
 
 Open **two terminals**. Change the topic in `src/config.py` if the public broker is noisy.
 
@@ -85,7 +85,7 @@ Topic: `ctec651/greenhousewatch/ipmcbit`
 
 Take a screenshot of both terminals for the Phase 3 deliverable.
 
-### Phase 4 — storage
+### Phase 4: storage
 
 The subscriber already inserts every valid message into `data/iot_data.db`.
 
@@ -97,7 +97,7 @@ python db.py                  # print schema + row count
 python seed_database.py --reset --n 80    # rebuild if needed
 ```
 
-### Phase 5 — visualization
+### Phase 5: visualization
 
 ```bash
 cd src
@@ -109,7 +109,7 @@ Open the CSV in Google Sheets or Excel for Option B.
 
 Read `docs/visualization_interpretation.md` for the short written analysis.
 
-### Phase 6 — optional dashboard
+### Phase 6: optional dashboard
 
 ```bash
 # from project root
@@ -161,8 +161,13 @@ Safe bands used by the alert logic: temperature 16–32 °C, humidity 40–80 %,
 ---
 
 ## Notes
-
-- Use **only free tools** (assignment rule). This project does.
+- Use **Applicable tools**. This project does.
 - If HiveMQ is blocked on campus Wi-Fi, use `offline_pipeline.py` for the recorded demo and still submit the publisher/subscriber source.
 - Edit `src/config.py` to change the MQTT topic, device id, or alert limits.
 - Creativity extras already included: four sensors, alert flags, day/night cycle, irrigation event, Streamlit dashboard.
+---
+All rights reserved.
+Jerry Diabor
+Department of Computer Science
+Bowie State University
+Initiative for A Smarter greenhouses healthier harvests  
