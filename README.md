@@ -1,4 +1,4 @@
-# GreenHouseWatch — Local IoT Digital Repository
+# GreenHouseWatch-Local IoT Digital Repository
 
 **Course:** CTEC 651 – Internet Technologies Discovery  
 **Instructor:** Prof. F. Njeh  
