@@ -173,6 +173,6 @@ All rights reserved.
 Jerry Diabor | Department of Computer Science | Bowie State University | Bowie, MD
 
 ---
-Initiative for A Smarter greenhouses healthier harvests 
+An Initiative for A Smarter Greenhouses Healthier Harvests 
 
 ---
