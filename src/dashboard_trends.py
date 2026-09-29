@@ -59,7 +59,8 @@ def long_term_trends():
     with controls[2]:
         source = st.selectbox('Source', list(SOURCES), key='trend_source')
     with controls[3]:
-        chosen = st.multiselect('Zones', zone_ids, format_func=zone_names.get, key='trend_zones')
+        # At most eight at once: the categorical palette has eight distinguishable colours.
+        chosen = st.multiselect('Zones', zone_ids, format_func=zone_names.get, key='trend_zones', max_selections=8)
 
     selected = hourly[hourly.zone_id.isin(chosen)]
     if SOURCES[source]:

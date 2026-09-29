@@ -29,7 +29,7 @@ def crop_image(name):
         asset = ASSETS / f'{name}.{extension}'
         if asset.exists():
             return f'data:{media_type};base64,' + base64.b64encode(asset.read_bytes()).decode()
-    return 'data:image/jpeg;base64,' + base64.b64encode((ASSETS/'seedling.jpg').read_bytes()).decode()
+    return 'data:image/jpeg;base64,' + base64.b64encode((ASSETS/'generic.jpg').read_bytes()).decode()
 
 def sparkline(values, color, key):
     low, high = min(values), max(values)

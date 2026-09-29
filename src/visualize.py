@@ -61,14 +61,17 @@ def _label(zone_id: str) -> str:
     return ZONE_PROFILES[zone_id]["label"]
 
 
-def load(conn) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Hourly zone history with target checks, and hourly outdoor weather, in local time."""
+def load(conn, zone_ids: list[str] = HISTORY_ZONES) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Hourly zone history with target checks, and hourly outdoor weather, in local time.
+
+    The report and slide charts use HISTORY_ZONES; the dashboard passes any selection of modelled crops.
+    """
     zones = pd.read_sql_query("SELECT * FROM greenhouse_zones", conn).set_index("zone_id")
-    marks = ",".join("?" * len(HISTORY_ZONES))
+    marks = ",".join("?" * len(zone_ids))
     data = pd.read_sql_query(
         f"SELECT zone_id, measured_at, temperature_c, humidity_pct, soil_moisture_pct, light_lux, "
         f"nutrient_level, ph_scale FROM zone_telemetry WHERE source = ? AND zone_id IN ({marks})",
-        conn, params=[HISTORY_SOURCE, *HISTORY_ZONES])
+        conn, params=[HISTORY_SOURCE, *zone_ids])
     if data.empty:
         raise SystemExit("No weather-driven history found. Run: python src/build_history.py")
     data["time"] = pd.to_datetime(data.measured_at, utc=True).dt.tz_convert(SITE_TIMEZONE)
@@ -130,6 +133,45 @@ def _save(fig, out_dir: Path, name: str, saved: list[Path]) -> None:
     saved.append(path)
 
 
+# --- Chart data, shared by these PNGs and the dashboard's Year in review so both show identical numbers ---
+
+def season_profiles(data: pd.DataFrame, outdoor: pd.DataFrame, zone_ids: list[str] = HISTORY_ZONES) -> pd.DataFrame:
+    """Mean temperature for each hour of the day, per season, for each zone and for outdoor air."""
+    rows = []
+    for season, months in SEASONS.items():
+        out = outdoor[outdoor.time.dt.month.isin(months)]
+        rows += [(season, "outdoor", hour, value) for hour, value in out.groupby(out.time.dt.hour).temperature_c.mean().items()]
+        subset = data[data.time.dt.month.isin(months)]
+        for zone_id in zone_ids:
+            zone = subset[subset.zone_id == zone_id]
+            rows += [(season, zone_id, hour, value) for hour, value in zone.groupby(zone.time.dt.hour).temperature_c.mean().items()]
+    return pd.DataFrame(rows, columns=["season", "series", "hour", "temperature_c"])
+
+
+def daily_temperatures(data: pd.DataFrame, outdoor: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Each zone's daily low, mean and high, and the outdoor daily mean."""
+    daily = data.groupby(["zone_id", data.time.dt.date]).temperature_c.agg(["min", "mean", "max"]).reset_index()
+    daily["time"] = pd.to_datetime(daily.time)
+    out = outdoor.groupby(outdoor.time.dt.date).temperature_c.mean()
+    out.index = pd.to_datetime(out.index)
+    return daily, out
+
+
+def calendar_days(data: pd.DataFrame) -> pd.DataFrame:
+    """Hours outside any target per zone and day, with week and weekday positions for a calendar grid."""
+    days = data.groupby(["zone_id", data.time.dt.date]).all_ok.agg(lambda s: int((~s).sum())).reset_index()
+    days["time"] = pd.to_datetime(days.time)
+    first = days.time.min() - pd.Timedelta(days=days.time.min().weekday())
+    days["week"] = (days.time - first).dt.days // 7
+    days["weekday"] = days.time.dt.weekday
+    return days.rename(columns={"all_ok": "hours_outside"})
+
+
+def _profile(profiles: pd.DataFrame, season: str, series: str) -> pd.Series:
+    rows = profiles[(profiles.season == season) & (profiles.series == series)]
+    return pd.Series(rows.temperature_c.values, index=rows.hour.values)
+
+
 def week_hourly(data, outdoor, out_dir, saved):
     end = data.time.max().normalize() + pd.Timedelta(days=1)
     start = end - pd.Timedelta(days=7)
@@ -163,14 +205,12 @@ def week_hourly(data, outdoor, out_dir, saved):
 def daily_cycle(data, outdoor, out_dir, saved):
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True, sharey=True)
     fig.subplots_adjust(top=0.84, bottom=0.08, left=0.07, right=0.97, hspace=0.3, wspace=0.08)
-    for ax, (season, months) in zip(axes.flat, SEASONS.items()):
-        subset = data[data.time.dt.month.isin(months)]
-        out = outdoor[outdoor.time.dt.month.isin(months)]
-        profile = out.groupby(out.time.dt.hour).temperature_c.mean()
+    profiles = season_profiles(data, outdoor)
+    for ax, season in zip(axes.flat, SEASONS):
+        profile = _profile(profiles, season, "outdoor")
         ax.plot(profile.index, profile.values, color=OUTDOOR, linewidth=1.4)
         for zone_id in HISTORY_ZONES:
-            zone = subset[subset.zone_id == zone_id]
-            curve = zone.groupby(zone.time.dt.hour).temperature_c.mean()
+            curve = _profile(profiles, season, zone_id)
             ax.plot(curve.index, curve.values, color=ZONE_COLORS[zone_id], linewidth=2)
         ax.set_title(season)
         ax.set_xticks(range(0, 24, 3))
@@ -185,10 +225,7 @@ def daily_cycle(data, outdoor, out_dir, saved):
 
 
 def daily_year(data, outdoor, out_dir, saved):
-    daily = data.groupby(["zone_id", data.time.dt.date]).temperature_c.agg(["min", "mean", "max"]).reset_index()
-    daily["time"] = pd.to_datetime(daily.time)
-    out = outdoor.groupby(outdoor.time.dt.date).temperature_c.mean()
-    out.index = pd.to_datetime(out.index)
+    daily, out = daily_temperatures(data, outdoor)
     fig, axes = plt.subplots(3, 1, figsize=(12, 9.5), sharex=True, sharey=True)
     fig.subplots_adjust(top=0.86, bottom=0.06, left=0.07, right=0.97, hspace=0.32)
     for ax, zone_id in zip(axes, HISTORY_ZONES):
@@ -296,18 +333,14 @@ def quarterly(summary, data, out_dir, saved):
 
 
 def calendar(data, out_dir, saved):
-    days = data.groupby(["zone_id", data.time.dt.date]).all_ok.agg(lambda s: int((~s).sum())).reset_index()
-    days["time"] = pd.to_datetime(days.time)
-    first = days.time.min() - pd.Timedelta(days=days.time.min().weekday())
-    days["week"] = (days.time - first).dt.days // 7
-    days["weekday"] = days.time.dt.weekday
+    days = calendar_days(data)
     weeks = days.week.max() + 1
     fig, axes = plt.subplots(3, 1, figsize=(13, 7.2))
     fig.subplots_adjust(top=0.83, bottom=0.12, left=0.06, right=0.98, hspace=0.55)
     for ax, zone_id in zip(axes, HISTORY_ZONES):
         grid = np.full((7, weeks), np.nan)
         zone = days[days.zone_id == zone_id]
-        grid[zone.weekday, zone.week] = zone.all_ok
+        grid[zone.weekday, zone.week] = zone.hours_outside
         image = ax.imshow(grid, cmap=BLUES, vmin=0, vmax=24, aspect="auto")
         ax.grid(False)
         ax.set_yticks([0, 2, 4, 6])
@@ -318,7 +351,7 @@ def calendar(data, out_dir, saved):
         ax.tick_params(length=0)
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.set_title(f"{_label(zone_id)} · {int((zone.all_ok == 0).sum())} of {len(zone)} days fully within target")
+        ax.set_title(f"{_label(zone_id)} · {int((zone.hours_outside == 0).sum())} of {len(zone)} days fully within target")
     bar = fig.colorbar(image, ax=axes, orientation="horizontal", fraction=0.03, pad=0.1, aspect=60)
     bar.set_label("Hours outside any target that day (0–24)", color=INK_2)
     bar.outline.set_visible(False)
@@ -389,13 +422,12 @@ def _save_slide(fig, out_dir: Path, name: str, saved: list[Path]) -> None:
 def slide_days(data, outdoor, out_dir, saved):
     fig, axes = plt.subplots(1, 4, figsize=(SLIDE_W, SLIDE_H), sharey=True)
     fig.subplots_adjust(top=0.66, bottom=0.14, left=0.07, right=0.99, wspace=0.08)
-    for ax, (season, months) in zip(axes, SEASONS.items()):
-        out = outdoor[outdoor.time.dt.month.isin(months)]
-        profile = out.groupby(out.time.dt.hour).temperature_c.mean()
+    profiles = season_profiles(data, outdoor)
+    for ax, season in zip(axes, SEASONS):
+        profile = _profile(profiles, season, "outdoor")
         ax.plot(profile.index, profile.values, color=OUTDOOR, linewidth=1.2)
         for zone_id in HISTORY_ZONES:
-            zone = data[(data.zone_id == zone_id) & data.time.dt.month.isin(months)]
-            curve = zone.groupby(zone.time.dt.hour).temperature_c.mean()
+            curve = _profile(profiles, season, zone_id)
             ax.plot(curve.index, curve.values, color=ZONE_COLORS[zone_id], linewidth=1.6)
         ax.set_title(season.split(" ")[0], loc="left")
         ax.set_xticks([0, 6, 12, 18])
@@ -463,18 +495,14 @@ def slide_quarters(summary, soil_dry_hours, out_dir, saved):
 
 
 def slide_year(data, out_dir, saved):
-    days = data.groupby(["zone_id", data.time.dt.date]).all_ok.agg(lambda s: int((~s).sum())).reset_index()
-    days["time"] = pd.to_datetime(days.time)
-    first = days.time.min() - pd.Timedelta(days=days.time.min().weekday())
-    days["week"] = (days.time - first).dt.days // 7
-    days["weekday"] = days.time.dt.weekday
+    days = calendar_days(data)
     weeks = days.week.max() + 1
     fig, axes = plt.subplots(3, 1, figsize=(SLIDE_W, SLIDE_H))
     fig.subplots_adjust(top=0.86, bottom=0.08, left=0.12, right=0.9, hspace=0.35)
     for ax, zone_id in zip(axes, HISTORY_ZONES):
         grid = np.full((7, weeks), np.nan)
         zone = days[days.zone_id == zone_id]
-        grid[zone.weekday, zone.week] = zone.all_ok
+        grid[zone.weekday, zone.week] = zone.hours_outside
         image = ax.imshow(grid, cmap=BLUES, vmin=0, vmax=24, aspect="auto")
         ax.grid(False)
         ax.set_yticks([])

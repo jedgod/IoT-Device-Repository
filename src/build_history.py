@@ -27,7 +27,7 @@ from urllib.request import urlopen
 from zoneinfo import ZoneInfo
 
 from config import (
-    HISTORY_ZONES, SITE_LATITUDE, SITE_LONGITUDE, SITE_TIMEZONE,
+    HISTORY_ZONES, MODELLED_ZONES, SITE_LATITUDE, SITE_LONGITUDE, SITE_TIMEZONE,
     WEATHER_HISTORY_PATH, ZONE_PROFILES,
 )
 from db import connect, init_db, insert_zone, insert_zone_telemetry
@@ -163,10 +163,15 @@ class ZoneModel:
 
 
 def history_readings(hours: list[dict], zones: list[str], seed: int = DEFAULT_SEED):
-    """Yield modelled readings in time order. The same weather file and seed always give identical readings."""
-    rng = random.Random(seed)
+    """Yield modelled readings in time order. The same weather file and seed always give identical readings.
+
+    The report's zones (HISTORY_ZONES) share one random stream, as originally built; every other crop has
+    its own seeded stream, so adding a crop never changes the readings (or charts) of existing ones.
+    """
+    shared = random.Random(seed)
     local_tz = ZoneInfo(SITE_TIMEZONE)
-    models = {zone_id: ZoneModel(zone_id, rng) for zone_id in zones}
+    models = {zone_id: ZoneModel(zone_id, shared if zone_id in HISTORY_ZONES else random.Random(f"{seed}:{zone_id}"))
+              for zone_id in zones}
     for sequence, hour in enumerate(hours, start=1):
         local = hour["time"].astimezone(local_tz)
         stamp = hour["time"].isoformat()
@@ -245,14 +250,14 @@ def main() -> None:
     conn = connect()
     init_db(conn)
     if args.weather_only:
-        store_weather(conn, hours, HISTORY_ZONES)
+        store_weather(conn, hours, MODELLED_ZONES)
         stored = 0
     else:
-        stored = build(conn, hours, HISTORY_ZONES, args.seed)
+        stored = build(conn, hours, MODELLED_ZONES, args.seed)
     conn.close()
     print(f"Stored {len(hours):,} weather hours ({hours[0]['time']:%Y-%m-%d} to {hours[-1]['time']:%Y-%m-%d} UTC)")
     if stored:
-        print(f"Stored {stored:,} modelled readings for {', '.join(HISTORY_ZONES)} (source '{SOURCE}', seed {args.seed})")
+        print(f"Stored {stored:,} modelled readings for {len(MODELLED_ZONES)} crop zones (source '{SOURCE}', seed {args.seed})")
 
 
 if __name__ == "__main__":

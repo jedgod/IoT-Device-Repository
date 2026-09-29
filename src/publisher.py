@@ -30,7 +30,7 @@ from config import (
 )
 from mqtt_util import make_client
 from simulator import generate_reading, generate_zone_reading
-from config import HISTORY_ZONES, ZONE_PROFILES
+from config import MODELLED_ZONES, ZONE_PROFILES
 
 def publish_with_retry(client, topic, body):
     """Publish one message, reconnecting and resending it if the connection drops."""
@@ -61,7 +61,7 @@ def replay_history(client, topic: str, days: int, seed: int, rate: float = 25.0)
     """
     from build_history import history_readings, load_cached_hours
     hours = load_cached_hours()
-    readings = list(history_readings(hours, HISTORY_ZONES, seed))
+    readings = list(history_readings(hours, MODELLED_ZONES, seed))
     if days:
         cutoff = (hours[-1]["time"] - timedelta(days=days)).timestamp()
         readings = [r for r in readings if r["timestamp"] > cutoff]
@@ -102,7 +102,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, help="seed the random generator so simulated values are reproducible")
     parser.add_argument("--replay-history", action="store_true",
                         help="send the weather-driven modelled history (what the charts show) instead of live simulation")
-    parser.add_argument("--days", type=int, default=7, help="with --replay-history: last N days, 0 = the whole year (default 7)")
+    parser.add_argument("--days", type=int, default=7, help="with --replay-history: last N days, 0 = the whole year (default 7; the year is ~78,000 messages, ~52 min)")
     parser.add_argument("--rate", type=float, default=25.0,
                         help="with --replay-history: messages per second (default 25; the subscriber stores about 40/s)")
     args = parser.parse_args()

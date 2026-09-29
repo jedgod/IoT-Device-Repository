@@ -142,3 +142,39 @@ def test_visualize_writes_report_and_slide_charts_from_one_database(tmp_path):
                                                                     'monthly_summary', 'quarterly_summary', 'year_calendar', 'indoor_vs_outdoor'], 1)]
                            + ['slides/days.png', 'slides/months.png', 'slides/quarters.png', 'slides/year.png',
                               'monthly_summary.csv', 'quarterly_summary.csv'])
+
+
+def test_year_in_review_renders_every_document_chart(tmp_path, monkeypatch):
+    from unittest.mock import patch
+    import streamlit as st
+    from streamlit.testing.v1 import AppTest
+    import dashboard_year
+    hours = _hours(datetime(2026, 1, 1, 5, tzinfo=timezone.utc), 24 * 120, temp=8.0, radiation=250)
+    _db(tmp_path, hours).close()
+    monkeypatch.setenv('GREENHOUSE_DB_PATH', str(tmp_path / 'history.db'))
+    app = AppTest.from_string('from dashboard_year import year_in_review\nyear_in_review()', default_timeout=60).run()
+    assert not app.exception
+    assert [t.label for t in app.tabs] == ['Days', 'Every day', 'Months', 'Quarters', 'Year']
+    assert app.selectbox(key='year_crop').options == ['All crops', 'Tomatoes', 'Lettuce', 'Seedlings']
+    app.selectbox(key='year_crop').select('lettuce-zone').run()
+    assert not app.exception
+    assert [m.label for m in app.metric] == ['Lettuce: days fully within target']
+    # Every chart, for all crops and for one crop, must serialise to Vega-Lite JSON (a pandas Period column once broke this).
+    data = dashboard_year.year_data.__wrapped__(tmp_path / 'history.db')
+    for zones, selected, expected in [(data['zones'], 'All crops', 8), (['lettuce-zone'], 'lettuce-zone', 6)]:
+        charts = []
+        with patch.object(st, 'altair_chart', lambda chart, **_: charts.append(chart)), patch.object(st, 'download_button', lambda *a, **k: None):
+            for draw in (dashboard_year._days, dashboard_year._every_day, dashboard_year._months, dashboard_year._quarters, dashboard_year._year):
+                draw(data, zones, selected)
+        assert len(charts) == expected
+        for chart in charts:
+            chart.to_json()
+
+
+def test_new_crops_leave_report_crops_unchanged():
+    from config import MODELLED_ZONES
+    hours = _hours(datetime(2026, 7, 1, tzinfo=timezone.utc), 72, temp=30.0, humidity=65.0, radiation=600)
+    report_only = [r for r in history_readings(hours, HISTORY_ZONES)]
+    with_all = [r for r in history_readings(hours, MODELLED_ZONES) if r['zone_id'] in HISTORY_ZONES]
+    assert report_only == with_all
+    assert 'cabbage-zone' in MODELLED_ZONES

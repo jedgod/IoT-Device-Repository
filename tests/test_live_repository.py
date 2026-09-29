@@ -72,6 +72,8 @@ def test_zone_health_crop_labels_and_images():
     assert _zone_image('Corn zone') == 'corn'
     assert _zone_image('Carrot zone') == 'carrot'
     assert _zone_image('Onion zone') == 'onion'
+    assert _zone_image(_display_zone_name('Device GH-SENSOR-01')) == 'sensor'
+    assert _zone_image(_display_zone_name('Cabbage')) == 'cabbage'
 
 def test_dashboard_refreshes_from_external_writer_and_persists_request(tmp_path,monkeypatch):
     path=tmp_path/'telemetry.db';conn=sqlite3.connect(path);init_db(conn)

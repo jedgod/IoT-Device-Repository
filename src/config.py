@@ -21,7 +21,7 @@ SITE_LATITUDE = 38.9429
 SITE_LONGITUDE = -76.7300
 SITE_TIMEZONE = "America/New_York"
 WEATHER_HISTORY_PATH = DATA_DIR / "weather_history_bowie.json"
-# Zones modelled hourly from real weather (Overview's primary zones)
+# The report and slide-8 charts show these three zones (Overview's primary zones)
 HISTORY_ZONES = ["tomato-zone", "lettuce-zone", "seedling-zone"]
 
 # MQTT (HiveMQ public broker — assignment requirement)
@@ -126,6 +126,15 @@ ZONE_PROFILES = {
         "soil_min": 55.0,
         "description": "Sensitive propagation zone that prioritises steady moisture.",
     },
+    "cabbage-zone": {
+        "label": "Cabbage",
+        "temp_min_c": 15.0,
+        "temp_max_c": 21.0,
+        "humidity_min": 60.0,
+        "humidity_max": 85.0,
+        "soil_min": 55.0,
+        "description": "Cool-season brassica that needs steady moisture and bolts in sustained heat.",
+    },
 }
 
 # Fixed chart colour per zone (validated categorical palette); colour follows the zone, never its rank.
@@ -133,8 +142,13 @@ ZONE_COLORS = {
     "tomato-zone": "#eb6834", "lettuce-zone": "#1baf7a", "seedling-zone": "#2a78d6",
     "cucumber-zone": "#eda100", "carrot-zone": "#e87ba4", "corn-zone": "#008300",
     "onion-zone": "#4a3aa7", "watermelon-zone": "#e34948",
+    # A ninth crop: charts never draw all nine as one legend (All views use small multiples and heatmaps).
+    "cabbage-zone": "#5f7d2b",
 }
 DEVICE_COLOR = "#898781"
+
+# Every crop gets a modelled year from the real weather (build_history.py); HISTORY_ZONES come first.
+MODELLED_ZONES = HISTORY_ZONES + [z for z in ZONE_PROFILES if z not in HISTORY_ZONES]
 
 ALERT_LIFECYCLE_STATES = [
     "Normal",

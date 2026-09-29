@@ -6,7 +6,7 @@ import altair as alt
 ZONES = [
     dict(name='Tomato zone',image='tomato',temperature=18.4,humidity=82.,soil=32.,target=45.),
     dict(name='Lettuce zone',image='lettuce',temperature=16.8,humidity=76.,soil=71.,target=50.),
-    dict(name='Seedling zone',image='seedling-new',temperature=17.9,humidity=78.,soil=63.,target=55.),
+    dict(name='Seedling zone',image='seedling',temperature=17.9,humidity=78.,soil=63.,target=55.),
 ]
 ACTIVITY = [
     ('14:12','Soil moisture low in Tomato zone (32%)','#e43e48','Tomato zone'),

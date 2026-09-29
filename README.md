@@ -15,7 +15,7 @@ Zones, Analytics, and Data share real stored measurements and filtered CSV expor
 Overview focuses on the three primary zones and core environmental trend modes:
 temperature and humidity, soil moisture, nutrient level, and pH scale. The Zones
 page contains the full configured crop catalog, including Tomato, Lettuce, Cucumber,
-Carrot, Corn, Onion, Watermelon, and Seedlings. Analytics provides selectable
+Carrot, Corn, Onion, Watermelon, Cabbage, and Seedlings. Analytics provides selectable
 metric charts, zone comparison, overall averages, and light analysis.
 
 Freshness and provenance labels distinguish recent, stale, seeded, and simulated
@@ -185,9 +185,15 @@ python export_csv.py          # writes ../data/sensor_data.csv
 | `06_year_calendar.png` | Year | Which days of the year had problems |
 | `07_indoor_vs_outdoor.png` | Year | At what outdoor temperature the controls stop coping |
 
-Open the CSVs in Google Sheets or Excel for Option B. The dashboard's
-**Analytics → Long-term trends** section shows the same data interactively,
-grouped by day, week, month, quarter or year.
+Open the CSVs in Google Sheets or Excel for Option B. In the dashboard, open
+**Analytics → Year in review** (http://localhost:8501/analytics) to see these same
+charts interactively, with tabs for Days, Every day, Months, Quarters and Year,
+and a **Crop** selector for All crops or any one of the nine modelled crops. Every
+crop, including Cabbage, has its own modelled year from the same real weather;
+the report and slide charts show Tomatoes, Lettuce and Seedlings, and their
+values do not change when crops are added.
+**Analytics → Long-term trends** groups any stored data by day, week, month,
+quarter or year.
 
 #### Reproducing the report and slide charts
 
@@ -230,6 +236,7 @@ The dashboard includes:
 - Primary Tomato, Lettuce, and Seedling zone health cards on Overview
 - Full crop-zone directory with matching local images on Zones
 - Analytics charts for zone comparison, overall averages, nutrient level, pH scale, light, and other stored metrics
+- Year in review (Analytics): the report's Figures 2–6 and the slide-8 charts as interactive charts, drawn by the same functions as `visualize.py`; a Crop selector switches between All crops and any single crop (Tomatoes, Lettuce, Cabbage, Onions, …)
 - Long-term trends grouped by day, week, month, quarter or year, filterable by zone and data source, with a table view and CSV export
 - Time ranges from the last 24 hours up to the last 12 months
 - Freshness warnings when a source has not reported within two minutes

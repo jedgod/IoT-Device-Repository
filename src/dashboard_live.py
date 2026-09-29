@@ -100,7 +100,7 @@ def chart(frame, mode, view='Compare zones'):
             'detail':alt.Detail('series:N'),
         }
         if view == 'Compare zones':
-            encodings['strokeDash']=alt.StrokeDash('zone:N',title='Zone',scale=alt.Scale(range=[[1,0],[6,3],[2,2],[10,3],[8,2,2,2],[4,2,4,6],[12,3,2,3],[1,3]]),legend=alt.Legend(orient='bottom',symbolType='stroke'))
+            encodings['strokeDash']=alt.StrokeDash('zone:N',title='Zone',scale=alt.Scale(range=[[1,0],[6,3],[2,2],[10,3],[8,2,2,2],[4,2,4,6],[12,3,2,3],[1,3],[5,2,1,2,1,2]]),legend=alt.Legend(orient='bottom',symbolType='stroke'))
         layers.append(alt.Chart(chart_data).mark_line(point=True,interpolate='linear').encode(**encodings))
     if not layers:
         return
@@ -126,6 +126,8 @@ def _display_zone_name(zone):
         return 'Onion zone'
     if name == 'Watermelon':
         return 'Watermelon zone'
+    if name == 'Cabbage':
+        return 'Cabbage zone'
     return name
 
 
@@ -134,14 +136,18 @@ def _zone_image(zone):
     image_map = {
         'Tomato zone': 'tomato',
         'Lettuce zone': 'lettuce',
-        'Seedling zone': 'seedling-new',
+        'Seedling zone': 'seedling',
         'Cucumber zone': 'cucumber',
         'Carrot zone': 'carrot',
         'Corn zone': 'corn',
         'Onion zone': 'onion',
         'Watermelon zone': 'watermelon',
+        'Cabbage zone': 'cabbage',
     }
-    return image_map.get(name, 'tomato')
+    # A sensor device shows a sensor in the soil; any other unconfigured source gets a neutral image.
+    if name.startswith('Device '):
+        return 'sensor'
+    return image_map.get(name, 'generic')
 
 def _zone_placeholder(zone_id):
     """Stand-in for a configured zone that has not reported; carries every field the views read."""
