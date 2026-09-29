@@ -53,7 +53,7 @@ Soil moisture was within target in effectively every hour (four dry hours in the
 1. **Lettuce is a cool-season crop here.** It is within target 94% of hours in Q4 but only 24% in Q3. Growing it from October to April and replacing it with a heat-tolerant crop over summer would remove most of its alert hours.
 2. **Seedlings need more humidity in winter.** A third of Q1 hours are too dry because heating dries the air. Added fogging capacity, or propagation covers, is the cheapest fix.
 3. **Tomatoes suit this house best.** They are outside target 17% of the year, and mostly on summer afternoons. Stronger shading or cooling in July and August would help most.
-4. **Heating is adequate except in the deepest cold.** At −17.7 °C outdoors (06:00, 30 January 2026), Seedlings held 17.7 °C against an 18 °C minimum, but Tomatoes fell to 17.7 °C against a 20 °C minimum. That is the one time the heater ran out of capacity. A backup heater, or a thermal screen for the coldest nights, would close that gap.
+4. **Heating is adequate except in the deepest cold.** At −17.7 °C outdoors (06:00, 30 January 2026), Seedlings dipped to 17.7 °C, 0.3 °C under their 18 °C minimum, and Tomatoes fell to 17.7 °C, 2.3 °C under their 20 °C minimum. That cold snap is where the heater ran out of capacity. A backup heater, or a thermal screen for the coldest nights, would close that gap.
 
 ## Limits of this analysis
 
