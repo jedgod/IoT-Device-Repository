@@ -24,7 +24,26 @@ from config import (
     PUBLISH_INTERVAL_SEC,
 )
 from mqtt_util import make_client
-from simulator import generate_reading
+from simulator import generate_reading, generate_zone_reading
+from config import ZONE_PROFILES
+
+def publish_with_retry(client, topic, body):
+    """Publish one message, reconnecting and resending it if the connection drops."""
+    while True:
+        try:
+            info = client.publish(topic, body, qos=0)
+            info.wait_for_publish(timeout=5)
+            return
+        except (RuntimeError, OSError) as error:
+            print(f'Publish connection lost ({error}); reconnecting...')
+            while True:
+                try:
+                    client.reconnect()
+                    print('Reconnected; resending message.')
+                    break
+                except OSError as reconnect_error:
+                    print(f'Reconnect failed ({reconnect_error}); retrying in 5 seconds.')
+                    time.sleep(5)
 
 
 def main() -> None:
@@ -33,6 +52,7 @@ def main() -> None:
     parser.add_argument("--interval", type=float, default=PUBLISH_INTERVAL_SEC)
     parser.add_argument("--broker", default=MQTT_BROKER)
     parser.add_argument("--topic", default=MQTT_TOPIC)
+    parser.add_argument('--zone', choices=list(ZONE_PROFILES), help='Attach zone metadata to simulated readings')
     args = parser.parse_args()
 
     client = make_client(MQTT_CLIENT_PUB)
@@ -43,10 +63,9 @@ def main() -> None:
     sent = 0
     try:
         while args.count == 0 or sent < args.count:
-            payload = generate_reading()
+            payload = generate_zone_reading(zone_id=args.zone, sequence_number=sent+1) if args.zone else generate_reading()
             body = json.dumps(payload)
-            info = client.publish(args.topic, body, qos=0)
-            info.wait_for_publish(timeout=5)
+            publish_with_retry(client, args.topic, body)
             sent += 1
             print(f"[{sent}] published → {args.topic}")
             print(f"       {body}")

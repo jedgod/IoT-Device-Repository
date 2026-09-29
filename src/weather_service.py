@@ -72,12 +72,21 @@ def forecast_records(payload):
             records.append({
                 'Time':local_time(item['dt'],offset).replace(tzinfo=None),
                 'Temperature (°C)':float(main['temp']),
+                'Feels like (°C)':float(main.get('feels_like',main['temp'])),
                 'Humidity (%)':float(main['humidity']),
                 'Wind (m/s)':float(item.get('wind',{}).get('speed',0)),
                 'Rain probability (%)':round(float(item.get('pop',0))*100),
                 'Rain (mm / 3h)':float(item.get('rain',{}).get('3h',0)),
                 'Conditions':(item.get('weather') or [{}])[0].get('description','Unavailable'),
+                'Icon':(item.get('weather') or [{}])[0].get('icon',''),
             })
         except (KeyError,TypeError,ValueError,OverflowError):
             raise WeatherError('OpenWeatherMap returned incomplete forecast intervals.') from None
     return records
+
+def risk_label(value, moderate, high):
+    return 'High' if value >= high else 'Moderate' if value >= moderate else 'Low'
+
+def cold_risk_label(value, moderate, high):
+    """Low temperatures are riskier, so thresholds count downward."""
+    return 'High' if value <= high else 'Moderate' if value <= moderate else 'Low'

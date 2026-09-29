@@ -6,7 +6,7 @@ import altair as alt
 ZONES = [
     dict(name='Tomato zone',image='tomato',temperature=18.4,humidity=82.,soil=32.,target=45.),
     dict(name='Lettuce zone',image='lettuce',temperature=16.8,humidity=76.,soil=71.,target=50.),
-    dict(name='Seedling zone',image='seedling',temperature=17.9,humidity=78.,soil=63.,target=55.),
+    dict(name='Seedling zone',image='seedling-new',temperature=17.9,humidity=78.,soil=63.,target=55.),
 ]
 ACTIVITY = [
     ('14:12','Soil moisture low in Tomato zone (32%)','#e43e48','Tomato zone'),
@@ -47,6 +47,6 @@ def environmental_chart(frame,mode,window):
         base=alt.Chart(data).encode(x=x)
         band=base.mark_area(opacity=.09,color=color).encode(y=alt.Y('low:Q',title=title,scale=alt.Scale(domain=domain),axis=alt.Axis(orient=orient)),y2='high:Q').transform_calculate(low=str(limits[0]),high=str(limits[1]))
         line=base.mark_line(color=color,strokeWidth=2,interpolate='monotone').encode(y=alt.Y(f'{field}:Q',title=title,scale=alt.Scale(domain=domain),axis=alt.Axis(orient=orient)),tooltip=[alt.Tooltip('time:T',title='Time (UTC)',format='%b %d, %H:%M'),alt.Tooltip(f'{field}:Q',title=title,format='.1f')])
-        layers.append(alt.layer(band,line))
-    return alt.layer(*layers).resolve_scale(y='independent').properties(height=204).configure_view(stroke=None).configure_axis(gridColor='#e4e9ef',domainColor='#bec7d5',tickColor='#bec7d5',labelColor='#626f8c',titleColor='#626f8c',titleFontWeight='normal',labelFontSize=11,titleFontSize=12,titlePadding=12).configure(background='transparent')
+        layers.append(alt.layer(band,line).resolve_scale(y='shared'))
+    return alt.layer(*layers).resolve_scale(y='independent').properties(height=204).configure_view(stroke=None).configure_axis(gridColor='#e4e9ef',domainColor='#bec7d5',tickColor='#bec7d5',labelColor='#626f8c',titleColor='#626f8c',titleFontWeight='normal',labelFontSize=12,titleFontSize=13,labelFont='Arial',titleFont='Arial',titlePadding=12).configure(background='transparent')
 

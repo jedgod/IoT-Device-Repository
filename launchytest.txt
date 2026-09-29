@@ -1,3 +1,18 @@
+LIVE DASHBOARD UPDATE — 18 SEPTEMBER 2026
+Restart your existing dashboard and subscriber once to load this update.
+From the project root, run in separate PowerShell terminals:
+  .venv\Scripts\python.exe -m streamlit run src/dashboard.py
+  .venv\Scripts\python.exe -u src/subscriber.py
+Overview, Zones, Analytics, and Data read SQLite every 5 seconds. The sidebar
+clock ticks every second. Closing the sidebar gives the main page its full width.
+Open Forecast to choose the city for the configured OpenWeatherMap API.
+Stored readings older than 2 minutes are labelled stale; choose All stored data
+to view history. New physical sensor messages require a connected sensor publisher.
+Optional SIMULATED stream (does not create physical observations):
+  .venv\Scripts\python.exe src/publisher.py --zone tomato-zone --interval 2
+Controls save pending requests only; no physical controller is connected.
+Full connection and payload details: docs/live_dashboard.md
+
 GREENHOUSEWATCH - WINDOWS POWERSHELL SETUP AND TEST GUIDE
 Repository: C:\Users\cj_wo\OneDrive\Desktop\IoT-Digital-Repository
 Prepared: 16 September 2026
@@ -130,15 +145,15 @@ Update report/slide totals if you submit the new snapshot.
 Open the Local URL printed by Streamlit, normally http://localhost:8501.
 Keep this terminal running while using the dashboard.
 
-Check that the page displays:
-- Readings: the current database row count.
-- Latest temperature, humidity and soil moisture.
-- Total alerts.
-- Four sensor charts and the latest 15 readings.
+Check that the Overview page displays:
+- Average temperature, humidity and soil moisture for the latest readings.
+- Condition alerts and the number of sources reporting.
+- The environmental trend chart and zone health cards.
 
-The dashboard does not automatically refresh when MQTT adds rows. Use Streamlit's
-Rerun command or reload the page after ingestion. Its charts currently use row
-positions, not timestamp-based horizontal axes.
+The dashboard re-reads SQLite every five seconds, so new MQTT rows appear
+without reloading the page. Charts plot measurements against their recorded
+time (UTC). Readings from publisher.py without --zone appear as the source
+"Device GH-SENSOR-01"; readings sent with --zone appear under that crop zone.
 
 If port 8501 is occupied, use:
 
@@ -175,12 +190,11 @@ Database is locked:
 Stop duplicate writers and finish or close any open edit transaction in a SQLite
 browser, then retry. Keep the application to one subscriber during the demo.
 
-Invalid sensor data / dashboard ValueError:
-The review reproduced acceptance of invalid numeric measurements by the subscriber
-and a dashboard failure on a nonnumeric latest temperature. The existing reviewed
-100-row dataset was valid. Input validation still needs a code fix. If this occurs,
-stop ingestion and inspect the offending row; preserve the database before making
-corrections. Do not assume a crash means the entire database must be reset.
+Invalid sensor data:
+The subscriber rejects non-numeric, non-finite and out-of-range measurements and
+prints 'store error' instead of saving them. Redelivered zone messages with an
+existing message_id are skipped as duplicates. If an unexpected row appears,
+stop ingestion and inspect it; preserve the database before making corrections.
 
 Empty database or too few readings for charts:
 Run src\offline_pipeline.py as in step 3 to populate data and regenerate outputs.
@@ -191,6 +205,19 @@ deletes existing sensor rows. For a backup, stop the subscriber and other writer
 then copy data\iot_data.db to a separately named backup before changing data.
 
 10. DEMONSTRATION CHECKLIST
+
+REAL WEATHER SETUP
+The supplied OpenWeatherMap key is stored locally in .streamlit/secrets.toml
+(excluded from Git). For another machine, create that file with:
+    [openweather]
+    api_key = "YOUR_OPENWEATHERMAP_KEY"
+Alternatively set the OPENWEATHER_API_KEY environment variable.
+Restart Streamlit, open Forecast, enter your city and country code (for example
+London, GB), click Find location, and select the correct result. Current outdoor
+conditions and the five-day / three-hour forecast load from OpenWeatherMap.
+Refresh weather updates immediately; automatic checks run every ten minutes
+while the Forecast page is open. Forecast details and export contains the CSV.
+Internet access is required. Overview shows the stored source provenance and measurement freshness.
 
 [ ] Dependencies installed and pip check passes.
 [ ] Simulator produces JSON and the saved sample has 20 records.

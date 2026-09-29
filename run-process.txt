@@ -76,7 +76,7 @@ Open the URL printed in the terminal, normally:
    http://localhost:8501
 
 Keep this terminal open while using the dashboard.
-Reload the dashboard page to read newly stored data.
+The dashboard re-reads the database every five seconds; no reload is needed.
 
 OFFLINE OPTION - If HiveMQ is unavailable
 

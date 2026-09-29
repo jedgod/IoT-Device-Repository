@@ -10,11 +10,26 @@ Run from this folder with `.venv\Scripts\python.exe -m streamlit run src/dashboa
 Install `requirements.txt` first; the dashboard uses Streamlit 1.63 or newer.
 Restart an already-running server once after this update to reload shared UI modules.
 
-The overview is explicitly a **demo** with reference readings, a 30-day simulated
-history, working zone/time/chart filters, filtered CSV export, dismissible alerts,
-and session-local simulated irrigation events. It does not send hardware commands
-or overwrite the SQLite repository. The theme is in `.streamlit/config.toml`;
-responsive styling and local crop thumbnails are in `src/assets/`.
+The dashboard now reads the actual SQLite repository every five seconds. Overview,
+Zones, Analytics, and Data share real stored measurements and filtered CSV exports.
+Overview focuses on the three primary zones and core environmental trend modes:
+temperature and humidity, soil moisture, nutrient level, and pH scale. The Zones
+page contains the full configured crop catalog, including Tomato, Lettuce, Cucumber,
+Carrot, Corn, Onion, Watermelon, and Seedlings. Analytics provides selectable
+metric charts, zone comparison, overall averages, and light analysis.
+
+Freshness and provenance labels distinguish recent, stale, seeded, and simulated
+readings. The dashboard treats readings older than two minutes as stale. The sidebar
+clock updates every second, and collapsing the sidebar expands the main page.
+OpenWeatherMap supplies the Forecast page, which defaults to Bowie, Maryland,
+and includes current-weather cards, daily summaries, greenhouse impact
+recommendations, indoor/outdoor comparisons, risk indicators, and CSV export.
+Irrigation is visibly marked
+`SIMULATION MODE` and disabled until water supply, valve, and controller checks
+are available; no physical actuator is configured.
+
+See [Live dashboard setup and data contract](docs/live_dashboard.md) for startup,
+sensor integration, freshness rules, and current limits.
 
 **Course:** CTEC 651 – Internet Technologies Discovery  
 **Instructor:** Prof. F. Njeh  
@@ -27,11 +42,11 @@ This folder is a complete, runnable implementation of every required phase:
 Sensor Simulator → MQTT Broker (HiveMQ) → Subscriber → SQLite → Visualization
 ```
 
-The project also includes a live Streamlit dashboard with monthly temperature summaries, a month filter, and a month-ahead forecast view for September through December.
+The project also includes a live SQLite-backed Streamlit dashboard and an OpenWeatherMap five-day outdoor forecast.
 
 ## Project highlights
 
-GreenHouseWatch combines a simulated greenhouse sensor pipeline with an interactive dashboard for monitoring temperature, humidity, soil moisture, and light. The dashboard includes a monthly temperature table, a filtered September–December view, and a future forecasting panel that compares current readings with the expected safe operating range for the next month ahead. This makes the repository useful both as an assignment deliverable and as a practical climate-monitoring prototype.
+GreenHouseWatch combines a simulated greenhouse sensor pipeline with an interactive dashboard for monitoring temperature, humidity, soil moisture, nutrient level, pH, and light. The dashboard includes stored telemetry trends, target bands, crop-specific zone health, source freshness, CSV export, and a five-day outdoor forecast. This makes the repository useful both as an assignment deliverable and as a practical climate-monitoring prototype.
 
 All tools are free: Python, HiveMQ public broker, SQLite, Matplotlib, optional Streamlit.
 
@@ -116,6 +131,15 @@ python publisher.py --count 20 --interval 2
 Broker: `broker.hivemq.com:1883`  
 Topic: `ctec651/greenhousewatch/ipmcbit`
 
+The publisher retries and reconnects automatically after a transient broker
+disconnect. For a continuous three-zone demo, run one publisher per primary zone:
+
+```bash
+python src/publisher.py --zone tomato-zone --interval 10
+python src/publisher.py --zone lettuce-zone --interval 10
+python src/publisher.py --zone seedling-zone --interval 10
+```
+
 Take a screenshot of both terminals for the Phase 3 deliverable.
 
 ### Phase 4 — storage
@@ -151,7 +175,15 @@ streamlit run src/dashboard.py
 
 The dashboard includes:
 
-- live readings for temperature, humidity, soil moisture, and light
+- Overview cards for temperature, humidity, soil moisture, and active alerts
+- Environmental trend modes for temperature and humidity, soil moisture, nutrient level, and pH scale
+- Interactive zoom, hover tooltips, target-range bands, and overall trend readings
+- Primary Tomato, Lettuce, and Seedling zone health cards on Overview
+- Full crop-zone directory with matching local images on Zones
+- Analytics charts for zone comparison, overall averages, nutrient level, pH scale, light, and other stored metrics
+- Freshness warnings when a source has not reported within two minutes
+- Explicit Online, Demo data, Degraded, and Offline system states
+- Fresh-only chart filtering, alert markers, event-focused activity filters, and data-quality summaries
 - monthly temperature summary table for September, October, November, and December
 - a filtered month view for the current selected month
 - a forecast month-ahead comparison showing current vs expected temperature
@@ -180,6 +212,8 @@ This reseeds if needed, exports CSV, and rebuilds the charts.
 | `humidity_pct`      | REAL    | Relative humidity %               |
 | `soil_moisture_pct` | REAL    | Soil moisture %                   |
 | `light_lux`         | REAL    | Ambient light                     |
+| `nutrient_level`    | REAL    | Simulated nutrient level %        |
+| `ph_scale`          | REAL    | Soil solution pH                  |
 | `alert_flag`        | INTEGER | 1 if any threshold is broken      |
 | `alert_reason`      | TEXT    | `high_temperature`, `dry_soil`, … |
 
@@ -214,7 +248,13 @@ The dashboard uses these bands to compare actual monthly average temperature wit
 
 ## Notes
 
+### Real outdoor weather
+
+Open **Forecast**, enter your city and two-letter country code, click **Find location**, and select the matching location. The page shows current outdoor weather and a five-day forecast in three-hour intervals, with local timestamps, Celsius temperatures, rain probability, and CSV export. It refreshes every ten minutes while open; **Refresh weather** requests a fresh result immediately.
+
+Set `OPENWEATHER_API_KEY` in the environment, or put `api_key = "YOUR_KEY"` under `[openweather]` in `.streamlit/secrets.toml`. Restart Streamlit after configuring secrets. The secrets file is excluded from Git; do not commit or share it. The supplied key is configured locally. Weather service errors appear on the page without exposing credentials. Overview reads SQLite and displays each source's recorded provenance; outdoor weather does not measure indoor conditions or control irrigation.
+
 - Use **only free tools** (assignment rule). This project does.
 - If HiveMQ is blocked on campus Wi-Fi, use `offline_pipeline.py` for the recorded demo and still submit the publisher/subscriber source.
 - Edit `src/config.py` to change the MQTT topic, device id, or alert limits.
-- Creativity extras already included: four sensors, alert flags, day/night cycle, irrigation event, Streamlit dashboard, monthly forecast table, and month-ahead temperature range analysis.
+- Creativity extras already included: multi-zone sensors, alert flags, day/night cycle, nutrient and pH telemetry, irrigation events, Streamlit dashboard, monthly forecast table, and month-ahead temperature range analysis.

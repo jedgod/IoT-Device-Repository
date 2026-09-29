@@ -13,6 +13,8 @@ SAMPLES_DIR = PROJECT_ROOT / "samples"
 
 DB_PATH = DATA_DIR / "iot_data.db"
 CSV_PATH = DATA_DIR / "sensor_data.csv"
+DEFAULT_CITY = "Bowie"
+DEFAULT_COUNTRY = "US"
 
 # MQTT (HiveMQ public broker — assignment requirement)
 MQTT_BROKER = "broker.hivemq.com"
@@ -79,6 +81,24 @@ ZONE_PROFILES = {
         "humidity_max": 75.0,
         "soil_min": 48.0,
         "description": "Cool-weather root crop requiring consistent moisture and moderate temperature.",
+    },
+    "corn-zone": {
+        "label": "Corn",
+        "temp_min_c": 18.0,
+        "temp_max_c": 30.0,
+        "humidity_min": 50.0,
+        "humidity_max": 75.0,
+        "soil_min": 50.0,
+        "description": "Tall grain crop requiring bright light, warm air, and steady root moisture.",
+    },
+    "onion-zone": {
+        "label": "Onions",
+        "temp_min_c": 13.0,
+        "temp_max_c": 24.0,
+        "humidity_min": 45.0,
+        "humidity_max": 70.0,
+        "soil_min": 42.0,
+        "description": "Bulb crop preferring moderate temperatures and well-drained soil.",
     },
     "watermelon-zone": {
         "label": "Watermelon",

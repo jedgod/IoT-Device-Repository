@@ -125,6 +125,8 @@ def generate_reading(
     humidity = 78.0 - 22.0 * solar + random.gauss(0, 1.4)
     light = 20.0 + 7800.0 * solar + random.gauss(0, 40.0)
     soil = soil_base + random.gauss(0, 0.6)
+    nutrient_level = 68.0 + random.gauss(0, 2.5)
+    ph_scale = 6.4 + random.gauss(0, 0.12)
 
     if anomaly == "heat_spike":
         temp += random.uniform(8.0, 12.0)
@@ -136,6 +138,7 @@ def generate_reading(
         light = random.uniform(0.0, 15.0)
 
     reading = {
+        "source": "simulator",
         "timestamp": round(ts, 3),
         "iso_time": datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(),
         "device_id": device_id,
@@ -143,6 +146,8 @@ def generate_reading(
         "humidity_pct": round(_clamp(humidity, 20.0, 98.0), 2),
         "soil_moisture_pct": round(_clamp(soil, 10.0, 95.0), 2),
         "light_lux": round(_clamp(light, 0.0, 12000.0), 1),
+        "nutrient_level": round(_clamp(nutrient_level, 0.0, 100.0), 1),
+        "ph_scale": round(_clamp(ph_scale, 4.0, 9.0), 2),
     }
     flag, reason = evaluate_alerts(reading)
     reading["alert_flag"] = flag

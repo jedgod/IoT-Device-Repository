@@ -25,20 +25,24 @@ def icon(name, color=None):
 
 @lru_cache(maxsize=8)
 def crop_image(name):
-    return 'data:image/jpeg;base64,' + base64.b64encode((ASSETS/f'{name}.jpg').read_bytes()).decode()
+    for extension, media_type in (('jpg', 'image/jpeg'), ('svg', 'image/svg+xml')):
+        asset = ASSETS / f'{name}.{extension}'
+        if asset.exists():
+            return f'data:{media_type};base64,' + base64.b64encode(asset.read_bytes()).decode()
+    return 'data:image/jpeg;base64,' + base64.b64encode((ASSETS/'seedling.jpg').read_bytes()).decode()
 
 def sparkline(values, color, key):
     low, high = min(values), max(values)
     points = ' '.join(f'{i*84/(len(values)-1):.1f},{30-(v-low)/max(high-low,.01)*23:.1f}' for i,v in enumerate(values))
     return svg_image(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 85 38"><defs><linearGradient id="{key}" x1="0" y1="0" x2="0" y2="1"><stop stop-color="{color}" stop-opacity=".25"/><stop offset="1" stop-color="{color}" stop-opacity="0"/></linearGradient></defs><polygon points="0,38 {points} 84,38" fill="url(#{key})"/><polyline points="{points}" fill="none" stroke="{color}" stroke-width="1.8"/></svg>', 'sparkline')
 
-def metric_card(label,value,delta,kind,values):
+def metric_card(label,value,delta,kind,values,note=None):
     color,bg = {'temperature':('#db160f','#fff4e8'),'water':('#075dcc','#e6f2ff'),'leaf':('#08773c','#e3f4ec'),'bell':('#e52c42','#ffecef')}[kind]
-    note = 'vs. previous period' if kind != 'bell' else 'in selected period'
+    note = note or ('vs. previous period' if kind != 'bell' else 'in selected period')
     delta_html = f'<div class="metric-delta">{escape(delta)}</div>' if kind!='bell' else f'<div class="metric-note">{escape(delta)}</div>'
     return f'<div class="metric-card {"alerts" if kind=="bell" else ""}"><div class="metric-icon" style="background:{bg};color:{color}">{icon(kind)}</div><div><div class="metric-label">{escape(label)}</div><div class="metric-value">{escape(value)}</div>{delta_html}<div class="metric-note">{note}</div></div>{sparkline(values,color if kind in ("bell","water") else "#08773c",kind)}</div>'
 
 def zone_card(z):
     attention = z['soil'] < z['target']
     status = 'Attention' if attention else 'Healthy'
-    return f'<div class="zone-row"><img src="{crop_image(z["image"])}" alt="{escape(z["name"])} crop"><div><div class="zone-name">{escape(z["name"])}</div><div class="zone-status {"attention" if attention else ""}"><span class="dot"></span>{status}</div></div><div class="zone-values"><span>{icon("temperature")}{z["temperature"]:.1f}°C</span><span class="water">{icon("water")}{z["humidity"]:.0f}%</span><span class="plant">{icon("plant")}{z["soil"]:.0f}%</span></div><span class="zone-chevron">›</span></div>'
+    return f'<div class="zone-row"><img src="{crop_image(z["image"])}" alt="{escape(z["name"])} crop"><div><div class="zone-name">{escape(z["name"])}</div><div class="zone-status {"attention" if attention else ""}"><span class="dot"></span>{status}</div></div><div class="zone-values"><span>{icon("temperature", "#7b879c")}{z["temperature"]:.1f}°C</span><span class="water">{icon("water", "#719fde")}{z["humidity"]:.0f}%</span><span class="plant">{icon("plant", "#66a37e")}{z["soil"]:.0f}%</span></div><span class="zone-chevron">›</span></div>'

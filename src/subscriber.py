@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 
 from config import (
     MQTT_BROKER,
@@ -19,7 +20,8 @@ from config import (
     MQTT_PORT,
     MQTT_TOPIC,
 )
-from db import connect, init_db, insert_reading, count_rows
+from db import connect, init_db, insert_reading, count_rows, insert_zone, insert_zone_telemetry
+from config import ZONE_PROFILES
 from mqtt_util import make_client
 
 
@@ -47,9 +49,34 @@ def on_message(client, userdata, msg):
         if not all(k in reading for k in required):
             print("      skipped — payload missing required fields")
             return
-        row_id = insert_reading(userdata["conn"], reading)
+        for key in ('timestamp','temperature_c','humidity_pct','soil_moisture_pct','light_lux'):
+            reading[key] = float(reading[key])
+            if not math.isfinite(reading[key]):
+                raise ValueError('Non-finite sensor measurement')
+        if not (0 <= reading['humidity_pct'] <= 100 and 0 <= reading['soil_moisture_pct'] <= 100 and reading['light_lux'] >= 0):
+            raise ValueError('Invalid sensor measurement range')
+        if reading.get('zone_id'):
+            zone_id = reading['zone_id']
+            if not userdata['conn'].execute('SELECT 1 FROM greenhouse_zones WHERE zone_id=?', (zone_id,)).fetchone():
+                if zone_id not in ZONE_PROFILES:
+                    print('      skipped — unknown zone; configure its thresholds first')
+                    return
+                profile = ZONE_PROFILES[zone_id]
+                insert_zone(userdata['conn'], dict(profile, zone_id=zone_id, crop_name=profile['label']))
+            from datetime import datetime, timezone
+            reading['received_at'] = datetime.now(timezone.utc).isoformat()
+            reading.setdefault('measured_at', reading['iso_time'])
+            reading.setdefault('message_id', f"{reading['device_id']}-{reading['timestamp']}")
+            reading.setdefault('sensor_id', reading['device_id'])
+            reading.setdefault('sequence_number', 0)
+            if userdata['conn'].execute('SELECT 1 FROM zone_telemetry WHERE message_id=?', (reading['message_id'],)).fetchone():
+                print(f"      skipped — duplicate message {reading['message_id']} already stored")
+                return
+            row_id = insert_zone_telemetry(userdata['conn'], reading)
+        else:
+            row_id = insert_reading(userdata["conn"], reading)
         n = count_rows(userdata["conn"])
-        print(f"      stored as id={row_id}  (db rows={n})")
+        print(f"      stored as id={row_id}  (legacy sensor rows={n})")
     except json.JSONDecodeError:
         print("      skipped — not valid JSON")
     except Exception as exc:

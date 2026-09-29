@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from config import DB_PATH, DATA_DIR
+from config import DB_PATH, DATA_DIR, ZONE_PROFILES
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sensor_data (
@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS zone_telemetry (
     humidity_pct REAL NOT NULL,
     soil_moisture_pct REAL NOT NULL,
     light_lux REAL NOT NULL,
+    nutrient_level REAL,
+    ph_scale REAL,
     alert_flag INTEGER NOT NULL DEFAULT 0,
     alert_state TEXT NOT NULL DEFAULT 'Normal',
     alert_severity TEXT NOT NULL DEFAULT 'info',
@@ -117,6 +119,15 @@ def init_db(conn: Optional[sqlite3.Connection] = None) -> None:
     if own:
         conn = connect()
     conn.executescript(SCHEMA_SQL)
+    for table in ('sensor_data', 'zone_telemetry'):
+        columns = {row[1] for row in conn.execute(f'PRAGMA table_info({table})')}
+        if 'source' not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN source TEXT NOT NULL DEFAULT 'unverified'")
+        if table == 'zone_telemetry':
+            if 'nutrient_level' not in columns:
+                conn.execute('ALTER TABLE zone_telemetry ADD COLUMN nutrient_level REAL')
+            if 'ph_scale' not in columns:
+                conn.execute('ALTER TABLE zone_telemetry ADD COLUMN ph_scale REAL')
     conn.commit()
     if own:
         conn.close()
@@ -146,15 +157,33 @@ def insert_zone(conn: sqlite3.Connection, zone: dict[str, Any]) -> int:
 
 
 def insert_zone_telemetry(conn: sqlite3.Connection, reading: dict[str, Any]) -> int:
+    zone = conn.execute(
+        'SELECT temp_min_c, temp_max_c, humidity_min, humidity_max, soil_min FROM greenhouse_zones WHERE zone_id=?',
+        (reading['zone_id'],),
+    ).fetchone()
+    reasons=[]
+    if zone:
+        if reading['temperature_c'] < zone[0] or reading['temperature_c'] > zone[1]:
+            reasons.append('temperature_outside_target')
+        if reading['humidity_pct'] < zone[2] or reading['humidity_pct'] > zone[3]:
+            reasons.append('humidity_outside_target')
+        if reading['soil_moisture_pct'] < zone[4]:
+            reasons.append('dry_soil')
+    reading['alert_flag']=int(bool(reasons))
+    reading['alert_reason']=','.join(reasons) if reasons else None
+    reading['alert_state']='Critical' if len(reasons)>1 else 'Warning' if reasons else 'Normal'
+    reading['alert_severity']={'Critical':'critical','Warning':'warning','Normal':'info'}[reading['alert_state']]
+    # A redelivered MQTT message keeps its original row instead of replacing it.
     cur = conn.execute(
         """
-        INSERT OR REPLACE INTO zone_telemetry (
+        INSERT INTO zone_telemetry (
             message_id, zone_id, sensor_id, device_id, sequence_number,
             firmware_version, battery_pct, signal_strength, data_quality,
             measured_at, received_at, temperature_c, humidity_pct,
             soil_moisture_pct, light_lux, alert_flag, alert_state,
-            alert_severity, alert_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            alert_severity, alert_reason, nutrient_level, ph_scale, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(message_id) DO NOTHING
         """,
         (
             reading["message_id"],
@@ -176,9 +205,14 @@ def insert_zone_telemetry(conn: sqlite3.Connection, reading: dict[str, Any]) -> 
             reading.get("alert_state", "Normal"),
             reading.get("alert_severity", "info"),
             reading.get("alert_reason"),
+            reading.get("nutrient_level"),
+            reading.get("ph_scale"),
+            reading.get("source", "unverified"),
         ),
     )
     conn.commit()
+    if cur.rowcount == 0:
+        return int(conn.execute('SELECT id FROM zone_telemetry WHERE message_id=?', (reading["message_id"],)).fetchone()[0])
     return int(cur.lastrowid)
 
 
@@ -210,66 +244,8 @@ def insert_alert_event(conn: sqlite3.Connection, alert: dict[str, Any]) -> int:
 
 def seed_default_zones(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     default_zones = [
-        {
-            "zone_id": "tomato-zone",
-            "crop_name": "Tomatoes",
-            "description": "Heat tolerant zone focused on growth and moisture balance.",
-            "temp_min_c": 20.0,
-            "temp_max_c": 28.0,
-            "humidity_min": 55.0,
-            "humidity_max": 75.0,
-            "soil_min": 45.0,
-        },
-        {
-            "zone_id": "lettuce-zone",
-            "crop_name": "Lettuce",
-            "description": "Cool and stable growth zone for crisp leaf development.",
-            "temp_min_c": 15.0,
-            "temp_max_c": 22.0,
-            "humidity_min": 60.0,
-            "humidity_max": 80.0,
-            "soil_min": 50.0,
-        },
-        {
-            "zone_id": "cucumber-zone",
-            "crop_name": "Cucumber",
-            "description": "Warm, high-humidity fruiting zone for rapid vine growth.",
-            "temp_min_c": 21.0,
-            "temp_max_c": 29.0,
-            "humidity_min": 65.0,
-            "humidity_max": 85.0,
-            "soil_min": 52.0,
-        },
-        {
-            "zone_id": "carrot-zone",
-            "crop_name": "Carrot",
-            "description": "Cool-root zone focused on consistent soil moisture and moderate temperatures.",
-            "temp_min_c": 12.0,
-            "temp_max_c": 22.0,
-            "humidity_min": 55.0,
-            "humidity_max": 75.0,
-            "soil_min": 48.0,
-        },
-        {
-            "zone_id": "watermelon-zone",
-            "crop_name": "Watermelon",
-            "description": "Warm fruiting zone with strong irrigation demand and heat tolerance.",
-            "temp_min_c": 24.0,
-            "temp_max_c": 32.0,
-            "humidity_min": 50.0,
-            "humidity_max": 70.0,
-            "soil_min": 46.0,
-        },
-        {
-            "zone_id": "seedling-zone",
-            "crop_name": "Seedlings",
-            "description": "Sensitive propagation zone needing steady humidity and irrigation control.",
-            "temp_min_c": 18.0,
-            "temp_max_c": 24.0,
-            "humidity_min": 65.0,
-            "humidity_max": 82.0,
-            "soil_min": 55.0,
-        },
+        dict(profile, zone_id=zone_id, crop_name=profile["label"])
+        for zone_id, profile in ZONE_PROFILES.items()
     ]
     rows = []
     for zone in default_zones:
@@ -280,6 +256,7 @@ def seed_default_zones(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 
 def seed_zone_telemetry(conn: sqlite3.Connection, count: int = 3) -> list[dict[str, Any]]:
     rows = []
+    seed_time = datetime.now(timezone.utc).replace(microsecond=0)
     base_values = {
         "tomato-zone": {"temperature_c": 26.5, "humidity_pct": 62.0, "soil_moisture_pct": 52.0},
         "lettuce-zone": {"temperature_c": 19.0, "humidity_pct": 70.0, "soil_moisture_pct": 58.0},
@@ -291,6 +268,8 @@ def seed_zone_telemetry(conn: sqlite3.Connection, count: int = 3) -> list[dict[s
     for idx in range(count):
         for zone_id, values in base_values.items():
             msg_id = f"{zone_id}-seed-{idx + 1}"
+            # Re-seeding refreshes the sample timestamps rather than keeping stale ones.
+            conn.execute("DELETE FROM zone_telemetry WHERE message_id = ?", (msg_id,))
             reading = {
                 "message_id": msg_id,
                 "zone_id": zone_id,
@@ -301,12 +280,14 @@ def seed_zone_telemetry(conn: sqlite3.Connection, count: int = 3) -> list[dict[s
                 "battery_pct": 90.0,
                 "signal_strength": -35.0,
                 "data_quality": "good",
-                "measured_at": f"2026-09-16T00:{idx + 1:02d}:00Z",
-                "received_at": f"2026-09-16T00:{idx + 1:02d}:05Z",
+                "measured_at": (seed_time - timedelta(minutes=count - idx - 1)).isoformat().replace("+00:00", "Z"),
+                "received_at": (seed_time - timedelta(minutes=count - idx - 1) + timedelta(seconds=5)).isoformat().replace("+00:00", "Z"),
                 "temperature_c": values["temperature_c"],
                 "humidity_pct": values["humidity_pct"],
                 "soil_moisture_pct": values["soil_moisture_pct"],
                 "light_lux": 520.0 + idx * 50,
+                "nutrient_level": 68.0 + (idx % 4) * 1.5,
+                "ph_scale": 6.2 + (idx % 3) * 0.1,
                 "alert_flag": 0,
                 "alert_state": "Normal",
                 "alert_severity": "info",
@@ -550,8 +531,8 @@ def insert_reading(conn: sqlite3.Connection, reading: dict[str, Any]) -> int:
         INSERT INTO sensor_data (
             timestamp, iso_time, device_id,
             temperature_c, humidity_pct, soil_moisture_pct, light_lux,
-            alert_flag, alert_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            alert_flag, alert_reason, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             reading["timestamp"],
@@ -563,6 +544,7 @@ def insert_reading(conn: sqlite3.Connection, reading: dict[str, Any]) -> int:
             reading["light_lux"],
             int(reading.get("alert_flag", 0)),
             reading.get("alert_reason"),
+            reading.get("source", "unverified"),
         ),
     )
     conn.commit()
@@ -581,6 +563,7 @@ def insert_many(conn: sqlite3.Connection, readings: Iterable[dict[str, Any]]) ->
             r["light_lux"],
             int(r.get("alert_flag", 0)),
             r.get("alert_reason"),
+            r.get("source", "unverified"),
         )
         for r in readings
     ]
@@ -589,8 +572,8 @@ def insert_many(conn: sqlite3.Connection, readings: Iterable[dict[str, Any]]) ->
         INSERT INTO sensor_data (
             timestamp, iso_time, device_id,
             temperature_c, humidity_pct, soil_moisture_pct, light_lux,
-            alert_flag, alert_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            alert_flag, alert_reason, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         rows,
     )
