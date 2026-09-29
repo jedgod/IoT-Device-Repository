@@ -1,4 +1,4 @@
-# GreenHouseWatch — Local IoT Digital Repository
+# GreenHouseWatch-Local IoT Digital Repository
 
 ### Reference dashboard preview
 
@@ -31,9 +31,9 @@ are available; no physical actuator is configured.
 See [Live dashboard setup and data contract](docs/live_dashboard.md) for startup,
 sensor integration, freshness rules, and current limits.
 
-**Course:** CTEC 651 – Internet Technologies Discovery  
+**Course:** CTEC 651-Internet Technologies Discovery  
 **Instructor:** Prof. F. Njeh  
-**Assignment:** Digital Repository Project 1 (due 28 September 2026)  
+**Project:** Digital Repository Project 1 (due 28 September 2026)  
 **Use case:** Smart greenhouse climate and soil monitoring
 
 This folder is a complete, runnable implementation of every required phase:
@@ -104,7 +104,7 @@ pip install -r requirements.txt
 
 ## How to run each phase
 
-### Phase 2 — simulate sensors
+### Phase 2: simulate sensors
 
 ### bash
 
@@ -116,7 +116,7 @@ python simulator.py --once # one JSON record
 
 Sample console output is saved in `samples/phase2_sample_output.txt`.
 
-### Phase 3 — MQTT transmission
+### Phase 3: MQTT transmission
 
 Open **two terminals**. Change the topic in `src/config.py` if the public broker is noisy.
 
@@ -147,7 +147,7 @@ The Overview status counts sources that reported in the last 24 hours. It shows
 
 Take a screenshot of both terminals for the Phase 3 deliverable.
 
-### Phase 4 — storage
+### Phase 4: storage
 
 The subscriber already inserts every valid message into `data/iot_data.db`.
 
@@ -159,7 +159,7 @@ python db.py                  # print schema + row count
 python seed_database.py --reset --n 80    # rebuild if needed
 ```
 
-### Phase 5 — visualization
+### Phase 5: visualization
 
 ```bash
 cd src
@@ -171,7 +171,7 @@ Open the CSV in Google Sheets or Excel for Option B.
 
 Read `docs/visualization_interpretation.md` for the short written analysis.
 
-### Phase 6 — optional dashboard
+### Phase 6: optional dashboard
 
 ```bash
 # from project root
@@ -187,7 +187,7 @@ The dashboard includes:
 - Full crop-zone directory with matching local images on Zones
 - Analytics charts for zone comparison, overall averages, nutrient level, pH scale, light, and other stored metrics
 - Freshness warnings when a source has not reported within two minutes
-- Explicit Online, Demo data, Degraded, and Offline system states
+- Explicit Online, Demo data, Degraded, and Sensors offline system states
 - Fresh-only chart filtering, alert markers, event-focused activity filters, and data-quality summaries
 - monthly temperature summary table for September, October, November, and December
 - a filtered month view for the current selected month
@@ -259,7 +259,19 @@ Open **Forecast**, enter your city and two-letter country code, click **Find loc
 
 Set `OPENWEATHER_API_KEY` in the environment, or put `api_key = "YOUR_KEY"` under `[openweather]` in `.streamlit/secrets.toml`. Restart Streamlit after configuring secrets. The secrets file is excluded from Git; do not commit or share it. The supplied key is configured locally. Weather service errors appear on the page without exposing credentials. Overview reads SQLite and displays each source's recorded provenance; outdoor weather does not measure indoor conditions or control irrigation.
 
-- Use **only free tools** (assignment rule). This project does.
+- Use **Applicable tools**. This project does.
 - If HiveMQ is blocked on campus Wi-Fi, use `offline_pipeline.py` for the recorded demo and still submit the publisher/subscriber source.
 - Edit `src/config.py` to change the MQTT topic, device id, or alert limits.
 - Creativity extras already included: multi-zone sensors, alert flags, day/night cycle, nutrient and pH telemetry, irrigation events, Streamlit dashboard, monthly forecast table, and month-ahead temperature range analysis.
+
+---
+
+All rights reserved.
+
+---
+Jerry Diabor | Department of Computer Science | Bowie State University | Bowie, MD
+
+---
+An Initiative for A Smarter Greenhouses Healthier Harvests 
+
+---
