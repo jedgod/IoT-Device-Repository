@@ -189,6 +189,30 @@ Open the CSVs in Google Sheets or Excel for Option B. The dashboard's
 **Analytics → Long-term trends** section shows the same data interactively,
 grouped by day, week, month, quarter or year.
 
+#### Reproducing the report and slide charts
+
+Every chart in `jerrydfirstdelivery_finalProject.docx` (Figures 2–6 are charts
+02–06) and on slide 8 of `IoT_GreenHouseWatch_lesson_jdiabor.pptx`
+(`outputs/slides/*.png`) is written by `visualize.py`. The only randomness is in
+the model, and it uses a fixed seed (651), so the same weather file always gives
+the same readings and pixel-identical charts.
+
+The readings can also travel the real pipeline. Send the modelled history over
+MQTT and the subscriber stores exactly the rows `build_history.py` would. Message
+IDs are fixed, so repeating a replay never duplicates rows:
+
+```bash
+python src/build_history.py --offline --weather-only   # outdoor weather + zone targets only
+python src/subscriber.py --quiet                        # Terminal A
+python src/publisher.py --replay-history --days 0       # Terminal B: the whole year (~17 min at 25 msg/s)
+python src/visualize.py                                 # same charts as the documents
+```
+
+The replay is paced (`--rate`, default 25 messages/second). The broker confirms
+receipt, not delivery, and the public broker drops messages that a slower
+subscriber cannot keep up with. Live simulated readings can be made repeatable
+with `--seed`, for example `python src/publisher.py --zone all --seed 651`.
+
 Read `docs/visualization_interpretation.md` for the written analysis.
 
 ### Phase 6: optional dashboard

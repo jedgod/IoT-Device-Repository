@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 
 from config import (
     MQTT_BROKER,
@@ -25,20 +26,23 @@ from config import ZONE_PROFILES
 from mqtt_util import make_client
 
 
+# QoS 1 so the broker confirms delivery of replayed history; live QoS 0 messages are unaffected.
 def on_connect_v2(client, userdata, flags, reason_code, properties=None):
     print(f"Connected (rc={reason_code}). Subscribing to {userdata['topic']}")
-    client.subscribe(userdata["topic"])
+    client.subscribe(userdata["topic"], qos=1)
 
 
 def on_connect_v1(client, userdata, flags, rc):
     print(f"Connected (rc={rc}). Subscribing to {userdata['topic']}")
-    client.subscribe(userdata["topic"])
+    client.subscribe(userdata["topic"], qos=1)
 
 
 def on_message(client, userdata, msg):
     raw = msg.payload.decode("utf-8", errors="replace")
-    print(f"RECV  {msg.topic}")
-    print(f"      {raw}")
+    quiet = userdata.get("quiet")
+    if not quiet:
+        print(f"RECV  {msg.topic}")
+        print(f"      {raw}")
     try:
         reading = json.loads(raw)
         # Accept the assignment's minimal payload as well as our full schema
@@ -70,13 +74,19 @@ def on_message(client, userdata, msg):
             reading.setdefault('sensor_id', reading['device_id'])
             reading.setdefault('sequence_number', 0)
             if userdata['conn'].execute('SELECT 1 FROM zone_telemetry WHERE message_id=?', (reading['message_id'],)).fetchone():
-                print(f"      skipped — duplicate message {reading['message_id']} already stored")
+                if not quiet:
+                    print(f"      skipped — duplicate message {reading['message_id']} already stored")
                 return
             row_id = insert_zone_telemetry(userdata['conn'], reading)
         else:
             row_id = insert_reading(userdata["conn"], reading)
-        n = count_rows(userdata["conn"])
-        print(f"      stored as id={row_id}  (legacy sensor rows={n})")
+        userdata["stored"] = userdata.get("stored", 0) + 1
+        if quiet:
+            if userdata["stored"] % 500 == 0:
+                print(f"stored {userdata['stored']:,} messages")
+        else:
+            n = count_rows(userdata["conn"])
+            print(f"      stored as id={row_id}  (legacy sensor rows={n})")
     except json.JSONDecodeError:
         print("      skipped — not valid JSON")
     except Exception as exc:
@@ -87,13 +97,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="MQTT subscriber + SQLite store")
     parser.add_argument("--broker", default=MQTT_BROKER)
     parser.add_argument("--topic", default=MQTT_TOPIC)
+    parser.add_argument("--db", help="SQLite file to write (default data/iot_data.db)")
+    parser.add_argument("--quiet", action="store_true", help="print progress every 500 stored messages instead of each message")
     args = parser.parse_args()
 
-    conn = connect()
+    conn = connect(args.db)
     init_db(conn)
 
-    client = make_client(MQTT_CLIENT_SUB)
-    client.user_data_set({"topic": args.topic, "conn": conn})
+    # A per-process client ID lets a second subscriber (e.g. a test database) run without disconnecting this one.
+    client = make_client(f"{MQTT_CLIENT_SUB}-{os.getpid()}")
+    client.user_data_set({"topic": args.topic, "conn": conn, "quiet": args.quiet})
     # Bind both callback signatures; paho uses whichever matches the API version
     client.on_connect = on_connect_v2
     try:

@@ -11,6 +11,8 @@ Usage (from the project root):
     python src/build_history.py                 # 1 Oct last year to 2 days ago
     python src/build_history.py --start 2025-10-01 --end 2026-09-27
     python src/build_history.py --offline       # rebuild from the cached weather file
+    python src/build_history.py --offline --weather-only
+                                                # weather only; send readings via publisher.py --replay-history
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 SOURCE = "weather model"
 WEATHER_SOURCE = "Open-Meteo archive"
 HOURLY_FIELDS = "temperature_2m,relative_humidity_2m,shortwave_radiation,cloud_cover"
+# Fixed seed: the modelled year, and every chart drawn from it, is reproducible exactly.
+DEFAULT_SEED = 651
 
 
 def default_period(today: date | None = None) -> tuple[date, date]:
@@ -158,9 +162,34 @@ class ZoneModel:
         }
 
 
-def build(conn, hours: list[dict], zones: list[str], seed: int = 651) -> int:
+def history_readings(hours: list[dict], zones: list[str], seed: int = DEFAULT_SEED):
+    """Yield modelled readings in time order. The same weather file and seed always give identical readings."""
     rng = random.Random(seed)
     local_tz = ZoneInfo(SITE_TIMEZONE)
+    models = {zone_id: ZoneModel(zone_id, rng) for zone_id in zones}
+    for sequence, hour in enumerate(hours, start=1):
+        local = hour["time"].astimezone(local_tz)
+        stamp = hour["time"].isoformat()
+        for zone_id, model in models.items():
+            yield {
+                "message_id": f"hist-{zone_id}-{hour['time']:%Y%m%d%H}",
+                "zone_id": zone_id,
+                "sensor_id": f"MODEL-{zone_id}",
+                "device_id": "WEATHER-MODEL",
+                "sequence_number": sequence,
+                "firmware_version": None,
+                "data_quality": "modelled",
+                "timestamp": hour["time"].timestamp(),
+                "iso_time": stamp,
+                "measured_at": stamp,
+                "received_at": stamp,
+                "source": SOURCE,
+                **model.step(hour, local),
+            }
+
+
+def store_weather(conn, hours: list[dict], zones: list[str]) -> None:
+    """Store the outdoor weather and make sure each modelled zone has its crop targets."""
     for zone_id in zones:
         if not conn.execute("SELECT 1 FROM greenhouse_zones WHERE zone_id=?", (zone_id,)).fetchone():
             profile = ZONE_PROFILES[zone_id]
@@ -170,31 +199,25 @@ def build(conn, hours: list[dict], zones: list[str], seed: int = 651) -> int:
         [(h["time"].isoformat(), h["temperature_c"], h["humidity_pct"], h["radiation_wm2"],
           h["cloud_cover_pct"], WEATHER_SOURCE) for h in hours],
     )
+    conn.commit()
+
+
+def build(conn, hours: list[dict], zones: list[str], seed: int = DEFAULT_SEED) -> int:
+    store_weather(conn, hours, zones)
     # Rebuilding replaces the previous model run rather than duplicating it.
     conn.execute("DELETE FROM zone_telemetry WHERE source = ?", (SOURCE,))
-    models = {zone_id: ZoneModel(zone_id, rng) for zone_id in zones}
     stored = 0
-    for sequence, hour in enumerate(hours, start=1):
-        local = hour["time"].astimezone(local_tz)
-        for zone_id, model in models.items():
-            values = model.step(hour, local)
-            stamp = hour["time"].isoformat()
-            insert_zone_telemetry(conn, {
-                "message_id": f"hist-{zone_id}-{hour['time']:%Y%m%d%H}",
-                "zone_id": zone_id,
-                "sensor_id": f"MODEL-{zone_id}",
-                "device_id": "WEATHER-MODEL",
-                "sequence_number": sequence,
-                "firmware_version": None,
-                "data_quality": "modelled",
-                "measured_at": stamp,
-                "received_at": stamp,
-                "source": SOURCE,
-                **values,
-            }, commit=False)
-            stored += 1
+    for reading in history_readings(hours, zones, seed):
+        insert_zone_telemetry(conn, reading, commit=False)
+        stored += 1
     conn.commit()
     return stored
+
+
+def load_cached_hours() -> list[dict]:
+    if not WEATHER_HISTORY_PATH.exists():
+        raise SystemExit("No cached weather. Run src/build_history.py once with internet access.")
+    return weather_hours(json.loads(WEATHER_HISTORY_PATH.read_text(encoding="utf-8")))
 
 
 def main() -> None:
@@ -203,6 +226,9 @@ def main() -> None:
     parser.add_argument("--start", type=date.fromisoformat, default=default_start)
     parser.add_argument("--end", type=date.fromisoformat, default=default_end)
     parser.add_argument("--offline", action="store_true", help="use the cached weather file only")
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="random seed for the model (default %(default)s)")
+    parser.add_argument("--weather-only", action="store_true",
+                        help="store outdoor weather and zone targets only; send the readings with publisher.py --replay-history")
     args = parser.parse_args()
 
     if args.offline:
@@ -218,10 +244,15 @@ def main() -> None:
 
     conn = connect()
     init_db(conn)
-    stored = build(conn, hours, HISTORY_ZONES)
+    if args.weather_only:
+        store_weather(conn, hours, HISTORY_ZONES)
+        stored = 0
+    else:
+        stored = build(conn, hours, HISTORY_ZONES, args.seed)
     conn.close()
     print(f"Stored {len(hours):,} weather hours ({hours[0]['time']:%Y-%m-%d} to {hours[-1]['time']:%Y-%m-%d} UTC)")
-    print(f"Stored {stored:,} modelled readings for {', '.join(HISTORY_ZONES)} (source '{SOURCE}')")
+    if stored:
+        print(f"Stored {stored:,} modelled readings for {', '.join(HISTORY_ZONES)} (source '{SOURCE}', seed {args.seed})")
 
 
 if __name__ == "__main__":

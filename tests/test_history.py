@@ -6,7 +6,7 @@ import sys
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from build_history import SOURCE, ZoneModel, build, default_period, weather_hours
+from build_history import SOURCE, ZoneModel, build, default_period, history_readings, store_weather, weather_hours
 from config import HISTORY_ZONES, SITE_TIMEZONE, ZONE_PROFILES
 from db import init_db
 from dashboard_repository import read_hourly, summarise_periods
@@ -92,3 +92,53 @@ def test_chart_loader_keeps_whole_local_days(tmp_path):
     assert set(summary.zone_id) == set(HISTORY_ZONES)
     assert summary.outside_target_pct.between(0, 100).all()
     conn.close()
+
+
+VALUE_COLUMNS = 'message_id, zone_id, measured_at, temperature_c, humidity_pct, soil_moisture_pct, light_lux, nutrient_level, ph_scale, alert_flag, alert_reason, source'
+
+
+def test_history_is_reproducible_from_its_seed():
+    hours = _hours(datetime(2026, 5, 1, tzinfo=timezone.utc), 48, temp=18.0, radiation=400)
+    first = list(history_readings(hours, HISTORY_ZONES, seed=651))
+    assert first == list(history_readings(hours, HISTORY_ZONES, seed=651))
+    assert first != list(history_readings(hours, HISTORY_ZONES, seed=652))
+
+
+def test_replay_through_subscriber_stores_the_same_rows_as_a_direct_build(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from subscriber import on_message
+    hours = _hours(datetime(2026, 5, 1, tzinfo=timezone.utc), 48, temp=18.0, radiation=400)
+    direct = _db(tmp_path, hours)
+    via_mqtt = sqlite3.connect(tmp_path / 'mqtt.db')
+    via_mqtt.row_factory = sqlite3.Row
+    init_db(via_mqtt)
+    store_weather(via_mqtt, hours, HISTORY_ZONES)
+    readings = list(history_readings(hours, HISTORY_ZONES))
+    for reading in readings + readings[:5]:  # Redelivered messages must not change anything.
+        on_message(None, {'conn': via_mqtt, 'quiet': True}, SimpleNamespace(topic='t', payload=json.dumps(reading).encode()))
+    query = f'SELECT {VALUE_COLUMNS} FROM zone_telemetry ORDER BY message_id'
+    assert [tuple(r) for r in via_mqtt.execute(query)] == [tuple(r) for r in direct.execute(query)]
+    direct.close()
+    via_mqtt.close()
+
+
+def test_simulator_seed_controls_simulated_values():
+    from simulator import generate_zone_reading
+    values = lambda r: {k: r[k] for k in ('temperature_c', 'humidity_pct', 'soil_moisture_pct', 'light_lux', 'battery_pct', 'sensor_id')}
+    random.seed(7)
+    first = values(generate_zone_reading(ts=1790000000, zone_id='lettuce-zone', sequence_number=1))
+    random.seed(7)
+    assert values(generate_zone_reading(ts=1790000000, zone_id='lettuce-zone', sequence_number=1)) == first
+
+
+def test_visualize_writes_report_and_slide_charts_from_one_database(tmp_path):
+    from visualize import save_all
+    hours = _hours(datetime(2026, 3, 1, 5, tzinfo=timezone.utc), 24 * 10, temp=12.0, radiation=300)
+    _db(tmp_path, hours).close()
+    saved = save_all(tmp_path / 'out', tmp_path / 'history.db')
+    names = sorted(p.relative_to(tmp_path / 'out').as_posix() for p in saved)
+    assert names == sorted([f'0{i}_{n}.png' for i, n in enumerate(['last_7_days_hourly', 'daily_cycle_by_season', 'daily_temperature_year',
+                                                                    'monthly_summary', 'quarterly_summary', 'year_calendar', 'indoor_vs_outdoor'], 1)]
+                           + ['slides/days.png', 'slides/months.png', 'slides/quarters.png', 'slides/year.png',
+                              'monthly_summary.csv', 'quarterly_summary.csv'])

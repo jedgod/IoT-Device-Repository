@@ -12,8 +12,10 @@ Open-Meteo outdoor weather, in local Bowie, MD time, and writes to ../outputs/:
   06_year_calendar.png             year     — calendar of daily hours outside target
   07_indoor_vs_outdoor.png         year     — how far the controls hold against the weather
 
-It also writes the table view behind the charts: monthly_summary.csv and
-quarterly_summary.csv.
+It also writes the table view behind the charts (monthly_summary.csv and
+quarterly_summary.csv) and wide versions for the lesson deck's slide 8
+(outputs/slides/days.png, months.png, quarters.png, year.png). The report's
+Figures 2-6 are charts 02-06; nothing in either document is drawn elsewhere.
 """
 
 from __future__ import annotations
@@ -349,10 +351,152 @@ def indoor_outdoor(data, outdoor, out_dir, saved):
     _save(fig, out_dir, "07_indoor_vs_outdoor.png", saved)
 
 
-def save_all(out_dir: Path | None = None) -> list[Path]:
+# --- Slide versions: wide 6.3 x 2.62 in cells for the lesson deck (slide 8), in the deck's Arial ---
+
+SLIDE_W, SLIDE_H, SLIDE_DPI = 6.3, 2.62, 250
+ACCENT = "#c65a2e"
+
+
+def _slide_style() -> None:
+    _style()
+    plt.rcParams.update({"font.family": ["Arial", "DejaVu Sans"], "font.size": 7.5, "axes.titlesize": 8,
+                         "figure.facecolor": "#ffffff", "axes.facecolor": "#ffffff", "savefig.facecolor": "#ffffff"})
+
+
+def _slide_heading(fig, label: str, text: str) -> None:
+    y = 1 - 0.08 / SLIDE_H
+    tag = fig.text(0.02, y, label, ha="left", va="top", fontsize=9.5, fontweight="bold", color=ACCENT)
+    right = fig.transFigure.inverted().transform(tag.get_window_extent(fig.canvas.get_renderer()).corners()[-1])[0]
+    fig.text(right + 0.012, y, text, ha="left", va="top", fontsize=9.5, fontweight="bold", color=INK)
+
+
+def _slide_legend(fig, outdoor: bool = True) -> None:
+    handles = [plt.Line2D([], [], color=ZONE_COLORS[z], linewidth=2, label=_label(z)) for z in HISTORY_ZONES]
+    if outdoor:
+        handles.append(plt.Line2D([], [], color=OUTDOOR, linewidth=1.4, label="Outdoor"))
+    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.012, 1 - 0.36 / SLIDE_H), ncol=len(handles),
+               fontsize=7.5, handlelength=1.5, columnspacing=1.2, frameon=False)
+
+
+def _save_slide(fig, out_dir: Path, name: str, saved: list[Path]) -> None:
+    path = out_dir / "slides" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=SLIDE_DPI)
+    plt.close(fig)
+    saved.append(path)
+
+
+def slide_days(data, outdoor, out_dir, saved):
+    fig, axes = plt.subplots(1, 4, figsize=(SLIDE_W, SLIDE_H), sharey=True)
+    fig.subplots_adjust(top=0.66, bottom=0.14, left=0.07, right=0.99, wspace=0.08)
+    for ax, (season, months) in zip(axes, SEASONS.items()):
+        out = outdoor[outdoor.time.dt.month.isin(months)]
+        profile = out.groupby(out.time.dt.hour).temperature_c.mean()
+        ax.plot(profile.index, profile.values, color=OUTDOOR, linewidth=1.2)
+        for zone_id in HISTORY_ZONES:
+            zone = data[(data.zone_id == zone_id) & data.time.dt.month.isin(months)]
+            curve = zone.groupby(zone.time.dt.hour).temperature_c.mean()
+            ax.plot(curve.index, curve.values, color=ZONE_COLORS[zone_id], linewidth=1.6)
+        ax.set_title(season.split(" ")[0], loc="left")
+        ax.set_xticks([0, 6, 12, 18])
+        ax.set_xticklabels(["00h", "06h", "12h", "18h"])
+        ax.set_xlim(0, 23)
+    axes[0].set_ylabel("Mean °C")
+    _slide_heading(fig, "DAYS", "Average day by season: summer afternoons push every zone up")
+    _slide_legend(fig)
+    _save_slide(fig, out_dir, "days.png", saved)
+
+
+def slide_months(summary, out_dir, saved):
+    fig, ax = plt.subplots(figsize=(SLIDE_W, SLIDE_H))
+    fig.subplots_adjust(top=0.7, bottom=0.12, left=0.07, right=0.99)
+    periods = list(summary.period.unique())
+    x = np.arange(len(periods))
+    width = 0.27
+    for i, zone_id in enumerate(HISTORY_ZONES):
+        zone = summary[summary.zone_id == zone_id]
+        ax.bar(x + (i - 1) * width, zone.outside_target_pct, width=width - 0.03, color=ZONE_COLORS[zone_id])
+        worst = zone.outside_target_pct.idxmax()
+        ax.annotate(f"{zone.outside_target_pct[worst]:.0f}%", (periods.index(zone.period[worst]) + (i - 1) * width,
+                    zone.outside_target_pct[worst]), xytext=(0, 2), textcoords="offset points", ha="center",
+                    fontsize=6.5, color=INK_2)
+    ax.set_xticks(x)
+    ax.set_xticklabels([p.strftime("%b") for p in periods])
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("% of hours outside target")
+    _slide_heading(fig, "MONTHS", "Hours outside target peak in July–August; winter dry air hits Seedlings")
+    _slide_legend(fig, outdoor=False)
+    _save_slide(fig, out_dir, "months.png", saved)
+
+
+def slide_quarters(summary, soil_dry_hours, out_dir, saved):
+    rows, labels = [], []
+    for zone_id in HISTORY_ZONES:
+        zone = summary[summary.zone_id == zone_id]
+        for column, name in [("all_within_pct", "any target"), ("temp_within_pct", "temperature"),
+                             ("humidity_within_pct", "humidity")]:
+            rows.append(100 - zone[column].values)
+            labels.append(f"{_label(zone_id)} · {name}")
+    grid = np.array(rows)
+    periods = list(summary.period.unique())
+    fig, ax = plt.subplots(figsize=(SLIDE_W, SLIDE_H))
+    fig.subplots_adjust(top=0.74, bottom=0.03, left=0.25, right=0.99)
+    ax.imshow(grid, cmap=BLUES, vmin=0, vmax=100, aspect="auto")
+    ax.grid(False)
+    for (r, c), value in np.ndenumerate(grid):
+        ax.text(c, r, f"{value:.0f}%", ha="center", va="center", fontsize=7,
+                color="#ffffff" if value >= 45 else INK, fontweight="bold" if r % 3 == 0 else "normal")
+    ax.set_xticks(range(len(periods)))
+    ax.set_xticklabels([f"Q{p.quarter} {p.year}" for p in periods])
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels, fontsize=7)
+    for boundary in (3, 6):
+        ax.axhline(boundary - 0.5, color="#ffffff", linewidth=3)
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    _slide_heading(fig, "QUARTERS", "Share of hours outside target (darker = worse)")
+    fig.text(0.02, 1 - 0.34 / SLIDE_H, f"Soil moisture stayed within target in all but {soil_dry_hours} hours of the year.",
+             fontsize=7, color=INK_2, va="top")
+    _save_slide(fig, out_dir, "quarters.png", saved)
+
+
+def slide_year(data, out_dir, saved):
+    days = data.groupby(["zone_id", data.time.dt.date]).all_ok.agg(lambda s: int((~s).sum())).reset_index()
+    days["time"] = pd.to_datetime(days.time)
+    first = days.time.min() - pd.Timedelta(days=days.time.min().weekday())
+    days["week"] = (days.time - first).dt.days // 7
+    days["weekday"] = days.time.dt.weekday
+    weeks = days.week.max() + 1
+    fig, axes = plt.subplots(3, 1, figsize=(SLIDE_W, SLIDE_H))
+    fig.subplots_adjust(top=0.86, bottom=0.08, left=0.12, right=0.9, hspace=0.35)
+    for ax, zone_id in zip(axes, HISTORY_ZONES):
+        grid = np.full((7, weeks), np.nan)
+        zone = days[days.zone_id == zone_id]
+        grid[zone.weekday, zone.week] = zone.all_ok
+        image = ax.imshow(grid, cmap=BLUES, vmin=0, vmax=24, aspect="auto")
+        ax.grid(False)
+        ax.set_yticks([])
+        ax.set_ylabel(_label(zone_id), rotation=0, ha="right", va="center", fontsize=7, color=INK_2)
+        starts = zone[~zone.time.dt.to_period("M").duplicated()].set_index("week").time
+        ax.set_xticks(starts.index)
+        ax.set_xticklabels([f"{t:%b}" for t in starts] if ax is axes[-1] else [], fontsize=6.5)
+        ax.tick_params(length=0)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+    bar = fig.colorbar(image, ax=axes, fraction=0.02, pad=0.02)
+    bar.set_label("Hours outside target", fontsize=6.5, color=INK_2)
+    bar.ax.tick_params(labelsize=6.5)
+    bar.outline.set_visible(False)
+    _slide_heading(fig, "YEAR", f"Each square is one day, {data.time.min():%b %Y} – {data.time.max():%b %Y}")
+    _save_slide(fig, out_dir, "year.png", saved)
+
+
+def save_all(out_dir: Path | None = None, db_path: Path | None = None) -> list[Path]:
     out_dir = Path(out_dir or OUTPUT_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
-    conn = connect()
+    conn = connect(db_path)
     data, outdoor = load(conn)
     conn.close()
     _style()
@@ -366,6 +510,11 @@ def save_all(out_dir: Path | None = None) -> list[Path]:
     quarterly(quarter_summary, data, out_dir, saved)
     calendar(data, out_dir, saved)
     indoor_outdoor(data, outdoor, out_dir, saved)
+    _slide_style()
+    slide_days(data, outdoor, out_dir, saved)
+    slide_months(month_summary, out_dir, saved)
+    slide_quarters(quarter_summary, int((~data.soil_ok).sum()), out_dir, saved)
+    slide_year(data, out_dir, saved)
     for name, table in [("monthly_summary.csv", month_summary), ("quarterly_summary.csv", quarter_summary)]:
         table.assign(period=table.period.astype(str)).to_csv(out_dir / name, index=False)
         saved.append(out_dir / name)
@@ -377,4 +526,9 @@ def save_all(out_dir: Path | None = None) -> list[Path]:
 
 
 if __name__ == "__main__":
-    save_all()
+    import argparse
+    parser = argparse.ArgumentParser(description="Draw the Phase 5 charts from the SQLite repository")
+    parser.add_argument("--db", type=Path, help="SQLite file to read (default data/iot_data.db)")
+    parser.add_argument("--out", type=Path, help="output folder (default outputs/)")
+    cli = parser.parse_args()
+    save_all(cli.out, cli.db)

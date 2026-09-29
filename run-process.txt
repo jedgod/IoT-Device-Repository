@@ -72,6 +72,17 @@ Charts are saved in outputs/:
    06_year_calendar.png           (year: one square per day)
    07_indoor_vs_outdoor.png       (year: control performance vs weather)
    monthly_summary.csv, quarterly_summary.csv (the numbers behind the charts)
+   slides\days.png, months.png, quarters.png, year.png (slide 8 of the deck)
+
+These are the exact images used in the report (Figures 2-6) and on slide 8.
+The model uses a fixed seed (651), so rerunning gives identical charts.
+
+To send the same readings through MQTT instead of writing them directly:
+   python src/build_history.py --offline --weather-only
+   python src/subscriber.py --quiet                     (Terminal A)
+   python src/publisher.py --replay-history --days 0    (Terminal B, ~17 min)
+   python src/visualize.py
+Use --days 7 for a short demo. Replaying twice never duplicates rows.
 
 CSV is saved as data/sensor_data.csv.
 Run these commands again after collecting new readings to update the files.
