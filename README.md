@@ -106,12 +106,10 @@ pip install -r requirements.txt
 
 ### Phase 2: simulate sensors
 
-### bash
-
+```bash
 cd src
 python simulator.py --count 20 --interval 2
-python simulator.py --once # one JSON record
-
+python simulator.py --once          # one JSON record
 ```
 
 Sample console output is saved in `samples/phase2_sample_output.txt`.
@@ -120,7 +118,7 @@ Sample console output is saved in `samples/phase2_sample_output.txt`.
 
 Open **two terminals**. Change the topic in `src/config.py` if the public broker is noisy.
 
-### bash
+```bash
 # Terminal A
 cd src
 python subscriber.py
