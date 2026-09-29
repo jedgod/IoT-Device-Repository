@@ -7,11 +7,11 @@ import pandas as pd
 import streamlit as st
 from zoneinfo import ZoneInfo
 from config import ZONE_PROFILES
-from dashboard_repository import read_snapshot, filter_readings, freshness, limits, reading_alert, METRICS
+from dashboard_repository import read_snapshot, filter_readings, freshness, limits, reading_alert, WINDOW_DAYS
 from dashboard_ui import crop_image, icon
 from dashboard_charts import prepare_chart_data, metric_chart_data
 
-WINDOWS = ['Last 24 hours','Last 7 days','Last 30 days','All stored data']
+WINDOWS = [*WINDOW_DAYS, 'All stored data']
 
 def snapshot_or_stop():
     try:

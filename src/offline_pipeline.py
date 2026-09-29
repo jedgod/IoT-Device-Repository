@@ -7,6 +7,10 @@ Useful when HiveMQ is unreachable or for a recorded demo fallback.
 
 from __future__ import annotations
 
+import json
+
+from build_history import SOURCE as HISTORY_SOURCE, build as build_history, weather_hours
+from config import HISTORY_ZONES, WEATHER_HISTORY_PATH
 from db import connect, init_db, insert_many, print_schema
 from export_csv import main as export_csv
 from simulator import generate_series
@@ -23,6 +27,12 @@ def main() -> None:
         print(f"Seeded {len(rows)} readings (db previously had {existing}).")
     else:
         print(f"Database already has {existing} readings — leaving them in place.")
+    modelled = conn.execute("SELECT COUNT(*) FROM zone_telemetry WHERE source=?", (HISTORY_SOURCE,)).fetchone()[0]
+    if not modelled:
+        if not WEATHER_HISTORY_PATH.exists():
+            raise SystemExit("No cached weather. Run src/build_history.py once with internet access.")
+        hours = weather_hours(json.loads(WEATHER_HISTORY_PATH.read_text(encoding="utf-8")))
+        print(f"Built {build_history(conn, hours, HISTORY_ZONES):,} modelled readings from cached Bowie weather.")
     conn.close()
     print_schema()
     export_csv()

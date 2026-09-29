@@ -36,7 +36,7 @@ def test_zone_alerts_are_normalized_to_crop_targets(tmp_path):
     from db import insert_zone
     insert_zone(conn,dict(zone_id='lettuce-zone',crop_name='Lettuce',description='',temp_min_c=15,temp_max_c=22,humidity_min=60,humidity_max=80,soil_min=50))
     reading=generate_zone_reading(zone_id='lettuce-zone')
-    reading.update(temperature_c=23.0, alert_flag=0, alert_reason='dry_soil')
+    reading.update(temperature_c=23.0, humidity_pct=70.0, soil_moisture_pct=60.0, alert_flag=0, alert_reason='dry_soil')
     insert_zone_telemetry(conn,reading)
     stored=conn.execute('SELECT alert_flag, alert_reason FROM zone_telemetry').fetchone()
     assert stored[0]==1

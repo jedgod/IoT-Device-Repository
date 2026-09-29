@@ -66,7 +66,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 Expected:
 - The simulator prints one JSON record with a timestamp, device ID, four sensor
   measurements, alert_flag and alert_reason.
-- The offline pipeline exports CSV and saves four PNG charts.
+- The offline pipeline exports CSV and saves seven PNG charts and two CSV summaries.
 - The database has at least 50 records. The reviewed snapshot had 100; subsequent
   MQTT runs will increase the count.
 
@@ -126,10 +126,11 @@ replaces these test logs and adds another batch of readings to the database.
 
 Expected outputs:
 data\sensor_data.csv
-outputs\01_temperature_over_time.png
-outputs\02_humidity_over_time.png
-outputs\03_soil_and_light.png
-outputs\04_alert_summary.png
+outputs\01_last_7_days_hourly.png ... outputs\07_indoor_vs_outdoor.png
+outputs\monthly_summary.csv, outputs\quarterly_summary.csv
+
+The charts use the modelled year built by src\build_history.py from real
+Bowie weather, not the live MQTT readings.
 
 Open the chart folder:
 
@@ -224,7 +225,7 @@ Internet access is required. Overview shows the stored source provenance and mea
 [ ] Subscriber connects to HiveMQ before publishing starts.
 [ ] Publisher output and subscriber receipts are saved.
 [ ] Database count increases by the number of messages actually received.
-[ ] CSV export and all four charts are refreshed.
+[ ] CSV export and all seven charts are refreshed.
 [ ] Dashboard count agrees with the database after a rerun.
 [ ] Report and slide totals agree with the selected submission snapshot.
 [ ] Final live or recorded demonstration shows the complete MQTT pipeline.

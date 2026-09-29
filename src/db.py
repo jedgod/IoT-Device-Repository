@@ -99,6 +99,15 @@ CREATE TABLE IF NOT EXISTS irrigation_events (
     status TEXT NOT NULL DEFAULT 'planned'
 );
 
+CREATE TABLE IF NOT EXISTS outdoor_weather (
+    measured_at TEXT PRIMARY KEY,
+    temperature_c REAL NOT NULL,
+    humidity_pct REAL NOT NULL,
+    radiation_wm2 REAL NOT NULL,
+    cloud_cover_pct REAL,
+    source TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sensor_ts ON sensor_data(timestamp);
 CREATE INDEX IF NOT EXISTS idx_zone_telemetry_ts ON zone_telemetry(measured_at);
 CREATE INDEX IF NOT EXISTS idx_alerts_zone ON alert_events(zone_id);
@@ -156,7 +165,7 @@ def insert_zone(conn: sqlite3.Connection, zone: dict[str, Any]) -> int:
     return int(cur.lastrowid)
 
 
-def insert_zone_telemetry(conn: sqlite3.Connection, reading: dict[str, Any]) -> int:
+def insert_zone_telemetry(conn: sqlite3.Connection, reading: dict[str, Any], commit: bool = True) -> int:
     zone = conn.execute(
         'SELECT temp_min_c, temp_max_c, humidity_min, humidity_max, soil_min FROM greenhouse_zones WHERE zone_id=?',
         (reading['zone_id'],),
@@ -210,7 +219,8 @@ def insert_zone_telemetry(conn: sqlite3.Connection, reading: dict[str, Any]) -> 
             reading.get("source", "unverified"),
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     if cur.rowcount == 0:
         return int(conn.execute('SELECT id FROM zone_telemetry WHERE message_id=?', (reading["message_id"],)).fetchone()[0])
     return int(cur.lastrowid)

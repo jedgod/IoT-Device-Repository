@@ -56,14 +56,22 @@ Database file: data/iot_data.db
 
 PHASE 5 - Generate charts and export CSV
 
+   python src/build_history.py      (once; downloads a year of Bowie weather)
    python src/visualize.py
    python src/export_csv.py
 
+build_history.py models the Tomato, Lettuce and Seedling zones hour by hour
+from real Bowie, MD weather. Add --offline to rebuild from the cached file.
+
 Charts are saved in outputs/:
-   01_temperature_over_time.png
-   02_humidity_over_time.png
-   03_soil_and_light.png
-   04_alert_summary.png
+   01_last_7_days_hourly.png      (days: hour-by-hour detail)
+   02_daily_cycle_by_season.png   (days: average 24-hour cycle per season)
+   03_daily_temperature_year.png  (days: daily low/mean/high over the year)
+   04_monthly_summary.png         (months)
+   05_quarterly_summary.png       (quarters)
+   06_year_calendar.png           (year: one square per day)
+   07_indoor_vs_outdoor.png       (year: control performance vs weather)
+   monthly_summary.csv, quarterly_summary.csv (the numbers behind the charts)
 
 CSV is saved as data/sensor_data.csv.
 Run these commands again after collecting new readings to update the files.
@@ -86,7 +94,8 @@ From the project root, run:
 
 This runs without MQTT. It adds 80 simulated readings if the database has
 fewer than 50 rows; otherwise it preserves existing readings. It then
-exports the CSV and rebuilds the four charts. The dashboard can be started
+builds the modelled history from the cached weather if
+it is missing, exports the CSV and rebuilds the seven charts. The dashboard can be started
 afterward with the Phase 6 command.
 
 STOPPING AND EXISTING PROCESSES

@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from config import ZONE_PROFILES
 from dashboard_live import snapshot_or_stop, chart as repository_chart, _display_zone_name, _live_zone_card, _zone_placeholder, WINDOWS
-from dashboard_repository import filter_readings, freshness, limits, reading_alert, database_path
+from dashboard_repository import filter_readings, freshness, limits, reading_alert, database_path, WINDOW_DAYS
 from dashboard_ui import icon, metric_card
 from dashboard_charts import prepare_chart_data, metric_chart_data
 
@@ -150,7 +150,7 @@ def overview():
             if len(series)<2: series=[latest[field].mean()]*2
             delta='Latest reading'
             if window!='All stored data':
-                days={'Last 24 hours':1,'Last 7 days':7,'Last 30 days':30}[window]
+                days=WINDOW_DAYS[window]
                 end=pd.Timestamp.now(tz='UTC')-pd.Timedelta(days=days)
                 previous=snap['readings']
                 if zone!='All zones': previous=previous[previous.zone_id==zone]

@@ -36,6 +36,26 @@ CREATE INDEX IF NOT EXISTS idx_sensor_ts ON sensor_data(timestamp);
 | `alert_flag` | INTEGER | 0 = normal, 1 = threshold broken |
 | `alert_reason` | TEXT | Comma-separated reason codes |
 
+## Other tables
+
+| Table | Holds |
+|---|---|
+| `greenhouse_zones` | One row per crop zone with its temperature, humidity and soil-moisture targets |
+| `zone_telemetry` | Per-zone readings. `source` records provenance: `simulator` (live MQTT demo), `weather model` (hourly history modelled from real weather by `build_history.py`), or a physical sensor |
+| `outdoor_weather` | Hourly Bowie, MD weather from the Open-Meteo archive (UTC `measured_at`, temperature, humidity, solar radiation, cloud cover) |
+| `alert_events`, `control_commands`, `irrigation_events` | Alert acknowledgements and saved irrigation requests |
+
+```sql
+CREATE TABLE IF NOT EXISTS outdoor_weather (
+    measured_at     TEXT PRIMARY KEY,
+    temperature_c   REAL NOT NULL,
+    humidity_pct    REAL NOT NULL,
+    radiation_wm2   REAL NOT NULL,
+    cloud_cover_pct REAL,
+    source          TEXT NOT NULL
+);
+```
+
 ## Stored volume
 
 The copy of `iot_data.db` shipped in this folder contains **80 readings** (assignment minimum is 50). Confirm any time with:

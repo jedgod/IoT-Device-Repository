@@ -16,6 +16,14 @@ CSV_PATH = DATA_DIR / "sensor_data.csv"
 DEFAULT_CITY = "Bowie"
 DEFAULT_COUNTRY = "US"
 
+# Greenhouse site (Bowie, Maryland) for historical weather and local-time reporting
+SITE_LATITUDE = 38.9429
+SITE_LONGITUDE = -76.7300
+SITE_TIMEZONE = "America/New_York"
+WEATHER_HISTORY_PATH = DATA_DIR / "weather_history_bowie.json"
+# Zones modelled hourly from real weather (Overview's primary zones)
+HISTORY_ZONES = ["tomato-zone", "lettuce-zone", "seedling-zone"]
+
 # MQTT (HiveMQ public broker — assignment requirement)
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -119,6 +127,14 @@ ZONE_PROFILES = {
         "description": "Sensitive propagation zone that prioritises steady moisture.",
     },
 }
+
+# Fixed chart colour per zone (validated categorical palette); colour follows the zone, never its rank.
+ZONE_COLORS = {
+    "tomato-zone": "#eb6834", "lettuce-zone": "#1baf7a", "seedling-zone": "#2a78d6",
+    "cucumber-zone": "#eda100", "carrot-zone": "#e87ba4", "corn-zone": "#008300",
+    "onion-zone": "#4a3aa7", "watermelon-zone": "#e34948",
+}
+DEVICE_COLOR = "#898781"
 
 ALERT_LIFECYCLE_STATES = [
     "Normal",

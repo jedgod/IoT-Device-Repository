@@ -76,13 +76,15 @@ IoT-Digital-Repository/
 │   ├── publisher.py              Phase 3
 │   ├── subscriber.py             Phase 3 + 4 (writes SQLite)
 │   ├── db.py / seed_database.py  Phase 4
+│   ├── build_history.py          Phase 5: a year of history from real Bowie weather
 │   ├── visualize.py / export_csv.py   Phase 5
 │   ├── dashboard.py              Phase 6 bonus
 │   └── offline_pipeline.py       Full demo without internet
 ├── data/
 │   ├── iot_data.db               Pre-seeded SQLite file (80 records)
-│   └── sensor_data.csv           Excel / Google Sheets export
-├── outputs/                      Four PNG charts
+│   ├── sensor_data.csv           Excel / Google Sheets export
+│   └── weather_history_bowie.json  Cached hourly Bowie weather (Open-Meteo)
+├── outputs/                      Seven PNG charts + monthly/quarterly CSV summaries
 ├── samples/                      Sample console output
 └── presentation/                 Phase 7 slides
 ```
@@ -159,15 +161,35 @@ python seed_database.py --reset --n 80    # rebuild if needed
 
 ### Phase 5: visualization
 
+The charts cover a full year so they can be read by day, month, quarter and year.
+Outdoor weather is **real**: hourly Bowie, MD data from the free Open-Meteo archive.
+Indoor conditions for the Tomato, Lettuce and Seedling zones are **modelled** from
+that weather (heating, shading, venting with pad cooling, fogging, irrigation), and
+stored with `source = 'weather model'` so they are never mistaken for sensor readings.
+
 ```bash
 cd src
-python visualize.py           # writes 4 PNGs into ../outputs/
+python build_history.py       # download a year of weather and model each zone (needs internet once)
+python build_history.py --offline   # rebuild from the cached weather file
+python visualize.py           # writes 7 PNGs + 2 CSV summaries into ../outputs/
 python export_csv.py          # writes ../data/sensor_data.csv
 ```
 
-Open the CSV in Google Sheets or Excel for Option B.
+| Chart | Time scale | Question it answers |
+|---|---|---|
+| `01_last_7_days_hourly.png` | Days | What happens hour by hour: heating, venting, the daily irrigation cycle |
+| `02_daily_cycle_by_season.png` | Days | What an average day looks like in each season |
+| `03_daily_temperature_year.png` | Days | Every day's low, mean and high against each crop's target band |
+| `04_monthly_summary.png` | Months | Monthly temperatures and the share of hours outside target |
+| `05_quarterly_summary.png` | Quarters | Which targets fail in which quarter, per zone |
+| `06_year_calendar.png` | Year | Which days of the year had problems |
+| `07_indoor_vs_outdoor.png` | Year | At what outdoor temperature the controls stop coping |
 
-Read `docs/visualization_interpretation.md` for the short written analysis.
+Open the CSVs in Google Sheets or Excel for Option B. The dashboard's
+**Analytics → Long-term trends** section shows the same data interactively,
+grouped by day, week, month, quarter or year.
+
+Read `docs/visualization_interpretation.md` for the written analysis.
 
 ### Phase 6: optional dashboard
 
@@ -184,6 +206,8 @@ The dashboard includes:
 - Primary Tomato, Lettuce, and Seedling zone health cards on Overview
 - Full crop-zone directory with matching local images on Zones
 - Analytics charts for zone comparison, overall averages, nutrient level, pH scale, light, and other stored metrics
+- Long-term trends grouped by day, week, month, quarter or year, filterable by zone and data source, with a table view and CSV export
+- Time ranges from the last 24 hours up to the last 12 months
 - Freshness warnings when a source has not reported within two minutes
 - Explicit Online, Demo data, Degraded, and Sensors offline system states
 - Fresh-only chart filtering, alert markers, event-focused activity filters, and data-quality summaries
@@ -199,7 +223,8 @@ cd src
 python offline_pipeline.py
 ```
 
-This reseeds if needed, exports CSV, and rebuilds the charts.
+This reseeds if needed, builds the modelled history from the cached weather file,
+exports CSV, and rebuilds the charts.
 
 ---
 
