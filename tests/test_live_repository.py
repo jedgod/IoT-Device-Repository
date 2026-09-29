@@ -153,3 +153,25 @@ def test_low_temperature_risk_rises_as_temperature_falls():
     assert cold_risk_label(20,15,10)=='Low'
     assert cold_risk_label(12,15,10)=='Moderate'
     assert cold_risk_label(5,15,10)=='High'
+
+def _overview_status(path,monkeypatch):
+    monkeypatch.setenv('GREENHOUSE_DB_PATH',str(path))
+    app=AppTest.from_file(Path(__file__).resolve().parents[1]/'src/dashboard.py',default_timeout=30).run()
+    assert not app.exception
+    return ' '.join(e.proto.body for e in app.get('html') if 'live-status' in e.proto.body)
+
+def test_long_silent_zones_do_not_degrade_overview_status(tmp_path,monkeypatch):
+    path=tmp_path/'telemetry.db';conn=sqlite3.connect(path);init_db(conn)
+    from db import seed_default_zones
+    seed_default_zones(conn);seed_zone_telemetry(conn)
+    old=generate_zone_reading(ts=(datetime.now(timezone.utc)-timedelta(days=3)).timestamp(),zone_id='corn-zone')
+    insert_zone_telemetry(conn,old);conn.close()
+    status=_overview_status(path,monkeypatch)
+    assert 'Demo data' in status and '6 of 6 active sources' in status
+
+def test_overview_reports_sensors_offline_without_recent_readings(tmp_path,monkeypatch):
+    path=tmp_path/'telemetry.db';conn=sqlite3.connect(path);init_db(conn)
+    old=generate_zone_reading(ts=(datetime.now(timezone.utc)-timedelta(days=3)).timestamp(),zone_id='tomato-zone')
+    on_message(None,{'conn':conn},SimpleNamespace(topic='test',payload=json.dumps(old).encode()));conn.close()
+    status=_overview_status(path,monkeypatch)
+    assert 'Sensors offline' in status and 'No readings in 24 h' in status

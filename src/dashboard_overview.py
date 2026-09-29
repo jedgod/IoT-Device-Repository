@@ -10,6 +10,8 @@ from dashboard_repository import filter_readings, freshness, limits, reading_ale
 from dashboard_ui import icon, metric_card
 from dashboard_charts import prepare_chart_data, metric_chart_data
 
+ACTIVE_HOURS=24
+
 def select_history():
     st.session_state.overview_window='All stored data'
 
@@ -82,12 +84,16 @@ def overview():
         st.session_state.overview_zone='All zones'
     selected=st.session_state.overview_zone
     latest=snap['latest'] if selected=='All zones' else snap['latest'][snap['latest'].zone_id==selected]
-    required_total=len(names) if selected=='All zones' else 1
-    fresh=sum(freshness(t)=='Fresh' for t in latest.time)
+    # Only sources heard from recently are expected to report; long-silent zones are inactive, not stale.
+    active_cutoff=pd.Timestamp.now(tz='UTC')-pd.Timedelta(hours=ACTIVE_HOURS)
+    active_latest=latest[latest.time>=active_cutoff]
+    inactive_names=[_display_zone_name(names.get(z,z)) for z in (names if selected=='All zones' else [selected]) if z not in set(active_latest.zone_id)]
+    required_total=len(active_latest)
+    fresh=sum(freshness(t)=='Fresh' for t in active_latest.time)
     stale_count=max(0,required_total-fresh)
-    source_names=set(latest.source.dropna()) if not latest.empty else set()
+    source_names=set(active_latest.source.dropna()) if not active_latest.empty else set()
     if not fresh:
-        system_status='Offline'
+        system_status='Sensors offline'
     elif stale_count:
         system_status='Degraded'
     elif source_names and source_names <= {'simulator','seeded sample'}:
@@ -105,8 +111,9 @@ def overview():
             with b:
                 window=st.selectbox('Time range',WINDOWS,key='overview_window')
             with c:
-                status_color={'Online':'#0b8646','Demo data':'#387bd0','Degraded':'#eaa008','Offline':'#626f78'}[system_status]
-                st.html(f'<div class="live-status"><span class="dot" style="background:{status_color}"></span><strong>{system_status}</strong><small>{fresh} of {required_total} sources reporting</small></div>')
+                status_color={'Online':'#0b8646','Demo data':'#387bd0','Degraded':'#eaa008','Sensors offline':'#626f78'}[system_status]
+                status_note=f'{fresh} of {required_total} active sources reporting' if required_total else f'No readings in {ACTIVE_HOURS} h'
+                st.html(f'<div class="live-status"><span class="dot" style="background:{status_color}"></span><strong>{system_status}</strong><small>{status_note}</small></div>')
             data=filter_readings(snap['readings'],zone,window)
             with d,st.container(key='export'):
                 st.download_button('Export data',data.to_csv(index=False),'greenhouse_readings.csv','text/csv',icon=':material/download:',width='stretch')
@@ -115,21 +122,21 @@ def overview():
         return
     alerts=[(r,reading_alert(r,limits(snap,r.zone_id))) for r in latest.itertuples()]
     active=[(r,reason) for r,reason in alerts if reason]
-    stale_names=', '.join(_display_zone_name(names.get(zone_id, zone_id)) for zone_id in names if zone_id not in set(latest.zone_id) or freshness(latest[latest.zone_id==zone_id].iloc[0].time)!='Fresh')
-    message=(f'{stale_count} of {required_total} sensor sources are stale. Last recorded values are displayed.' if stale_count else
+    stale_names=', '.join(_display_zone_name(row.zone) for row in active_latest.itertuples() if freshness(row.time)!='Fresh')
+    message=(f'No sensor source has reported in the last {ACTIVE_HOURS} hours. Start the subscriber and a publisher; last recorded values are displayed.' if not required_total else
+             f'{stale_count} of {required_total} active sensor sources are stale. Last recorded values are displayed.' if stale_count else
              f'{_display_zone_name(active[0][0].zone)}: {active[0][1]}.' if active else 'All monitored zones are within their configured targets.')
     with st.container(key='alert_banner'):
         text,action=st.columns([10,1.5],vertical_alignment='center')
         with text:
-            st.html(f'<div class="alert-copy">{icon("warning" if stale_count or active else "leaf")}<span>{escape(message)}</span></div>')
+            st.html(f'<div class="alert-copy">{icon("warning" if stale_count or active or not required_total else "leaf")}<span>{escape(message)}</span></div>')
         with action:
-            if stale_count:
-                st.button('View affected zones',on_click=lambda: st.switch_page('dashboard_pages/zones.py'),width='stretch')
-            elif st.button('View zones',icon=':material/arrow_forward:',width='stretch'):
+            if st.button('View affected zones' if stale_count else 'View zones',icon=':material/arrow_forward:',width='stretch'):
                 st.switch_page('dashboard_pages/zones.py')
-    if stale_count:
+    if stale_count or inactive_names:
         with st.expander('Affected sources and connection checks'):
-            st.write(stale_names)
+            if stale_names: st.write(f'Stale: {stale_names}')
+            if inactive_names: st.caption(f'Inactive (no readings in {ACTIVE_HOURS} h, not counted in status): '+', '.join(inactive_names))
             st.caption('Check the MQTT subscriber, zone publishers, broker, and topic before treating last-known values as live readings.')
             st.button('Troubleshoot connection',on_click=troubleshoot_connection,key='troubleshoot_connection')
     if st.session_state.get('connection_help'):

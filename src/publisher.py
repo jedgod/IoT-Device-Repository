@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 
 from config import (
@@ -52,10 +53,13 @@ def main() -> None:
     parser.add_argument("--interval", type=float, default=PUBLISH_INTERVAL_SEC)
     parser.add_argument("--broker", default=MQTT_BROKER)
     parser.add_argument("--topic", default=MQTT_TOPIC)
-    parser.add_argument('--zone', choices=list(ZONE_PROFILES), help='Attach zone metadata to simulated readings')
+    parser.add_argument('--zone', nargs='+', choices=[*ZONE_PROFILES, 'all'],
+                        help="Attach zone metadata; list several zones or use 'all' to publish one reading per zone each interval")
     args = parser.parse_args()
+    zones = list(ZONE_PROFILES) if args.zone and 'all' in args.zone else args.zone
 
-    client = make_client(MQTT_CLIENT_PUB)
+    # A per-process client ID lets several publishers share the broker without disconnecting each other.
+    client = make_client(f"{MQTT_CLIENT_PUB}-{os.getpid()}")
     print(f"Connecting to {args.broker}:{MQTT_PORT} …")
     client.connect(args.broker, MQTT_PORT, MQTT_KEEPALIVE)
     client.loop_start()
@@ -63,12 +67,13 @@ def main() -> None:
     sent = 0
     try:
         while args.count == 0 or sent < args.count:
-            payload = generate_zone_reading(zone_id=args.zone, sequence_number=sent+1) if args.zone else generate_reading()
-            body = json.dumps(payload)
-            publish_with_retry(client, args.topic, body)
+            payloads = [generate_zone_reading(zone_id=zone, sequence_number=sent+1) for zone in zones] if zones else [generate_reading()]
+            for payload in payloads:
+                body = json.dumps(payload)
+                publish_with_retry(client, args.topic, body)
+                print(f"[{sent + 1}] published → {args.topic}")
+                print(f"       {body}")
             sent += 1
-            print(f"[{sent}] published → {args.topic}")
-            print(f"       {body}")
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("\nPublisher stopped.")

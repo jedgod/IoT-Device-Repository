@@ -106,10 +106,12 @@ pip install -r requirements.txt
 
 ### Phase 2 — simulate sensors
 
-```bash
+### bash
+
 cd src
 python simulator.py --count 20 --interval 2
-python simulator.py --once          # one JSON record
+python simulator.py --once # one JSON record
+
 ```
 
 Sample console output is saved in `samples/phase2_sample_output.txt`.
@@ -118,7 +120,7 @@ Sample console output is saved in `samples/phase2_sample_output.txt`.
 
 Open **two terminals**. Change the topic in `src/config.py` if the public broker is noisy.
 
-```bash
+### bash
 # Terminal A
 cd src
 python subscriber.py
@@ -132,13 +134,16 @@ Broker: `broker.hivemq.com:1883`
 Topic: `ctec651/greenhousewatch/ipmcbit`
 
 The publisher retries and reconnects automatically after a transient broker
-disconnect. For a continuous three-zone demo, run one publisher per primary zone:
+disconnect. For a continuous demo, one publisher can cover every zone, or list
+specific zones. Each publisher uses its own client ID, so several can run at once:
 
 ```bash
-python src/publisher.py --zone tomato-zone --interval 10
-python src/publisher.py --zone lettuce-zone --interval 10
-python src/publisher.py --zone seedling-zone --interval 10
+python src/publisher.py --zone all --interval 10
+python src/publisher.py --zone tomato-zone lettuce-zone seedling-zone --interval 10
 ```
+
+The Overview status counts sources that reported in the last 24 hours. It shows
+"Sensors offline" until a publisher is running and the subscriber is storing readings.
 
 Take a screenshot of both terminals for the Phase 3 deliverable.
 
